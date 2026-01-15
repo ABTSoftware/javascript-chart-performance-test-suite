@@ -1,0 +1,49 @@
+.chart-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+#chart-root {
+    width: 800px !important;
+    height: 600px !important;
+    flex-shrink: 0;
+    background-color: #d3d3d3;
+}
+
+#system-info {
+    flex: 1;
+    min-width: 300px;
+    max-width: 500px;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+#download-link {
+    display: none;
+    margin-top: 20px;
+}
+
+table,
+th,
+td {
+    border: 1px solid #333;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 4px 8px;
+}
+
+th:not(:nth-of-type(1)),
+td:not(:nth-of-type(1)) {
+    text-align: center;
+}
+
+#result-table {
+    margin-top: 20px;
+}
+
+body {
+    font-family: 'Open Sans', sans-serif;
+}

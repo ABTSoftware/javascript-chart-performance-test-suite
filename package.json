@@ -1,0 +1,17 @@
+{
+  "name": "js-performance-test-suite",
+  "version": "1.0.0",
+  "description": "JS Performance Test Suite",
+  "main": "index.js",
+  "scripts": {
+    "start": "vite",
+    "build": "echo \"No build step required\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "^2.4.1",
+    "vite": "^7.3.1"
+  }
+}

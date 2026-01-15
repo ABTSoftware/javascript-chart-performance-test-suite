@@ -1,0 +1,9 @@
+.vscode/
+build/
+node_modules/
+.idea/
+.DS_Store
+package-lock.json
+~$test-results.xlsx
+.aider*
+.vite/
