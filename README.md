@@ -14,9 +14,8 @@ This Test suite performs JavaScript Chart stress tests and compares the followin
 - Apache eCharts (with GL series types where available)
 - uPlot
 
-> Care has been taken to ensure the latest version of libraries are used, and tests are fair and equitable where feature differences or API differences occur between the libraries. 
-> 
-> For example: Data is generated in the same manner, all test cases use Float64 data and all tests aim to minimise GC load by re-using data arrays passed to the charts. We only want to test the charts, not data generation time
+> Care has been taken to ensure the latest version of libraries are used, and tests are fair and equitable where feature differences or API differences occur between the libraries.  
+> For example: Data is generated in the same manner, all test cases use Float64 data and all tests aim to minimise GC load by re-using data arrays passed to the charts.
 > 
 > FPS (Frames per second) is measured in the same manner for all libraries / test cases using `requestAnimationFrame` and `performance.now` and memory usage is reported using `window.performance.memory?.usedJSHeapSize`
 
@@ -26,20 +25,99 @@ This test suite aims to test a variety of JavaScript Chart operations with a var
 
 A full list of test cases carried out and their descriptions can be found below:
 
-- **N line series M points:** Multi (line) series charts (hundreds, or even thousands of line series on a chart)
-- **Brownian Motion Scatter Series:** randomised, Xy scatter charts
-- **Line series unsorted in X:** randomised, Xy line charts
-- **Point series, sorted, updating y-values:** lines with scatter points where X-values are sorted
-- **Column Chart with data ascending in X:** Column or bar charts with static data where the chart is programmatically zoomed
-- **Candlestick series test:** Candlestick charts with static data where the chart is programmatically zoomed
-- **FIFO / ECG Chart Performance Test:** Realtime scrolling 'first in first out' ECG style charts with 5 series and millions of data-points
-- **Mountain Chart Performance Test:** Mountain or area charts with static data where the chart is programmatically zoomed
-- **Series Compression Test:** Realtime charts where data is appended to a line chart as fast as you can
-- **Multi Chart Performance Test:** An increasing numbers of charts (2, 4, 8, 16 ... up to 128 charts) each with realtime line series
-- **Uniform Heatmap Performance Test:** Realtime uniform heatmap updating as fast as possible with increasing number of cells
-- **3D Point Cloud Performance Test:** Realtime 3D point clouds with randomised data, with increasing numbers of data-points
-- **3D Surface Performance Test:** Realtime 3D surface plots with a generated sinusoidal function with increasing number of cells
+### N line series M points Test
 
+![NxM Series JavaScript Chart Performance Test](img/testcase-NxM.png)
+
+Multi-line test case for monte carlo simulation style charts. Starting with 100 line series x 100 data-points per series,
+the test is incrementally updated to 200x200, 500x500, 1000x1000, 2000x2000 and 4000x4000. 
+
+This test case stresses the static overhead of adding a line series and drawing to a chart, while dynamically varying the zoom to measure the update rate.
+
+### Brownian Motion Scatter Series Test
+
+![Scatter Series JavaScript Chart Performance Test](img/testcase-brownian.png)
+
+Single chart, single series test with a randomized, Xy data set rendered by scatter points. Starting at 1000 datapoints, the point-count is incrementally updated to 10000, 50000, 100000, 200000, 500000 all the way up to 10 million data-points. 
+The dataset is updated in realtime and the chart render speed, memory and frame count is measured. 
+
+This test case stresses the real-time data update rate of the chart for randomised data when rendering scatter plots. As no caching and no optimisations can be enabled for random data, this test stresses the raw drawing performance of the chart.
+
+### Line series unsorted in X
+
+![Randomised Xy Line Series JavaScript Chart Performance Test](img/testcase-xyline.png)
+
+Single chart, single series test with a randomized, Xy data set rendered by line points. Starting at 1000 datapoints, the point-count is incrementally updated to 10000, 50000, 100000, 200000, 500000 all the way up to 10 million data-points.
+The dataset is updated in realtime and the chart render speed, memory and frame count is measured.
+
+This test case stresses the real-time data update rate of the chart for randomised data when rendering line plots. As no caching and no optimisations can be enabled for random data, this test stresses the raw drawing performance of the chart.
+
+### Point series, sorted, updating y-values:
+
+![Scatter Line Series realtime JavaScript Chart Performance Test](img/testcase-pointline.png)
+
+With x-values sorted ascending, some caching optimisations can be enabled, however with randomised data, this test stresses the data update rate of the chart to draw lines and scatter points simultaneously, for incrementally increasing point-counts from 1000 points through to 10 million datapoints.
+
+### Column Chart with data ascending in X:
+
+![Column Series JavaScript Chart Performance Test](img/testcase-column.png)
+
+Stresses the rendering performance of column or bar charts, an often overlooked chart type in high performance visualisation, but one that is critical in dashboards and complex applications. 
+
+A static dataset is loaded and the chart programatically zoomed to measure the redraw rate of the chart. This test stresses rendering performance, but not data update rate.
+
+### Candlestick series test:
+
+![Candlestick Series JavaScript Chart Performance Test](img/testcase-candle.png)
+
+Stresses the rendering performance of candlestick charts, an often overlooked chart type in high performance financial visualisation, but one that is critical in financial applications, quantitative trading and HFT applications.
+
+A static dataset is loaded and the chart programatically zoomed to measure the redraw rate of the chart. This test stresses rendering performance, but not data update rate.
+
+### FIFO / ECG Chart Performance Test:
+
+![Realtime FIFO ECG Data Ingestion JavaScript Chart Performance Test](img/testcase-fifo.png)
+
+A single chart is loaded with 5 series, each with a fixed number of data-points. New data is appended in realtime and the chart scrolled in a 'First in first out' or ECG style. 
+Test cases get incrementally harder starting off at hundreds of data-points per second and ramping up to millions of data-points per second ingested.
+
+This test case stresses the data update rate and rendering capabilities of the charts, giving an indication of the datapoints per second that can realistically be sent to a JavaScript chart under these conditions.
+
+### Mountain Chart Performance Test:
+
+![Mountain (Area) Series JavaScript Chart Performance Test](img/testcase-mountain.png)
+
+Mountain or area charts with static data where the chart is programmatically zoomed
+
+### Series Compression Test:
+
+![Realtime Line Series Data Ingestion JavaScript Chart Performance Test](img/testcase-append.png)
+
+Realtime charts where data is appended to a line chart as fast as you can
+
+### Multi Chart Performance Test:
+
+![Realtime Multi-Chart JavaScript Chart Performance Test](img/testcase-multchart.png)
+
+An increasing numbers of charts (2, 4, 8, 16 ... up to 128 charts) each with realtime line series
+
+### Uniform Heatmap Performance Test:
+
+![Realtime Heatmap JavaScript Chart Performance Test](img/testcase-heatmap.png)
+
+Realtime uniform heatmap updating as fast as possible with increasing number of cells
+
+### 3D Point Cloud Performance Test:
+
+![Realtime 3D Point Cloud JavaScript Chart Performance Test](img/testcase-3dpointcloud.png)
+
+Realtime 3D point clouds with randomised data, with increasing numbers of data-points
+
+### 3D Surface Performance Test:
+
+![Realtime 3D Surface Mesh JavaScript Chart Performance Test](img/testcase-3dsurface.png)
+
+Realtime 3D surface plots with a generated sinusoidal function with increasing number of cells
 
 ## Running the Test Suite
 
