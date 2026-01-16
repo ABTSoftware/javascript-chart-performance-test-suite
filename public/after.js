@@ -74,9 +74,6 @@
         const result = await perfTest.createChart();
         if (result === false) break;
         const libLoadTime = gTestLibLoaded(i);
-        
-        await nextFrameRender();
-        gTestFirstFrameRendered(i);
 
         perfTest.generateData();
         gTestDataGenerated(i);
@@ -97,8 +94,13 @@
             break;
         }
 
-        await nextFrameRender();
         const startTime = gTestInitialDataAppended(i);
+        
+        // Wait for multiple frames to ensure data is actually rendered
+        await nextFrameRender();
+        await nextFrameRender();
+        await nextFrameRender();
+        gTestFirstFrameRendered(i);
         
         // Check if total setup time (lib load + data append) exceeds test duration - if so, fail with HANGING
         const totalSetupDuration = performance.now() - gGetResultRecord(i).timestampTestStart;
@@ -560,6 +562,7 @@ function createResultTable(resultArr, testGroupName) {
     const memoryValues = [];
     const frameValues = [];
     const dataAppendValues = [];
+    const firstFrameValues = [];
     
     resultArr.forEach(row => {
         if (row.minFPS !== null && row.minFPS !== undefined) fpsValues.push(row.minFPS);
@@ -568,6 +571,7 @@ function createResultTable(resultArr, testGroupName) {
         if (row.memory !== null && row.memory !== undefined) memoryValues.push(row.memory);
         if (row.numberOfFrames !== null && row.numberOfFrames !== undefined) frameValues.push(row.numberOfFrames);
         if (row.benchmarkTimeInitialDataAppend !== null && row.benchmarkTimeInitialDataAppend !== undefined) dataAppendValues.push(row.benchmarkTimeInitialDataAppend);
+        if (row.benchmarkTimeFirstFrame !== null && row.benchmarkTimeFirstFrame !== undefined) firstFrameValues.push(row.benchmarkTimeFirstFrame);
     });
     
     const fpsMin = Math.min(...fpsValues, 0);
@@ -578,6 +582,8 @@ function createResultTable(resultArr, testGroupName) {
     const framesMax = Math.max(...frameValues);
     const dataAppendMin = Math.min(...dataAppendValues);
     const dataAppendMax = Math.max(...dataAppendValues);
+    const firstFrameMin = Math.min(...firstFrameValues);
+    const firstFrameMax = Math.max(...firstFrameValues);
     
     let resStr = `<table id="table">`;
     const tableHeader = `<tr>
@@ -606,7 +612,10 @@ function createResultTable(resultArr, testGroupName) {
         rowStr += `<td style='text-align: right'>${row.config?.series}</td>`;
         rowStr += `<td style='text-align: right'>${row.config?.charts || '-'}</td>`;
         rowStr += `<td style='text-align: right'>${roundToSignificantFigures(row.benchmarkTimeLibLoad, 2)}</td>`;
-        rowStr += `<td style='text-align: right'>${roundToSignificantFigures(row.benchmarkTimeFirstFrame, 2)}</td>`;
+        
+        // First Frame column with red heatmap (higher is worse)
+        const firstFrameBg = getRedHeatmapColor(row.benchmarkTimeFirstFrame, firstFrameMin, firstFrameMax);
+        rowStr += `<td style='text-align: right; background-color: ${firstFrameBg}'>${roundToSignificantFigures(row.benchmarkTimeFirstFrame, 2)}</td>`;
         
         // Data Append column with red heatmap (higher is worse)
         const dataAppendBg = getRedHeatmapColor(row.benchmarkTimeInitialDataAppend, dataAppendMin, dataAppendMax);

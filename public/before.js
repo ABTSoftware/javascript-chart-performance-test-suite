@@ -28,7 +28,7 @@ const G_TEST_GROUP_NAME = {
     SURFACE_3D_PERFORMANCE_TEST: '3D Surface Performance Test',
 };
 
-const testDuration = 10000; // 10seconds
+const testDuration = 5000; // 5 seconds
 
 // If you want to run one test type set "testTypeToRun: G_TEST_TYPE.MOUNTAIN_PERFORMANCE_TEST"
 const G_TEST_GROUPS = {
@@ -689,9 +689,9 @@ function gTestLibLoaded(index) {
 }
 function gTestFirstFrameRendered(index) {
     const result = gGetResultRecord(index);
-    result.timestampFirstFrameWithoutDataRendered = performance.now();
-    result.benchmarkTimeFirstFrame = result.timestampFirstFrameWith - result.timestampLibLoaded;
-    return result.timestampFirstFrameWithoutDataRendered;
+    result.timestampFirstFrameWithDataRendered = performance.now();
+    result.benchmarkTimeFirstFrame = result.timestampFirstFrameWithDataRendered - result.timestampTestStart;
+    return result.timestampFirstFrameWithDataRendered;
 }
 function gTestDataGenerated(index) {
     const result = gGetResultRecord(index);
