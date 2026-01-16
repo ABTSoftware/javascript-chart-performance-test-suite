@@ -535,22 +535,25 @@ function createResultsTable(testName, testResults) {
 }
 
 function getFpsHeatmapColor(fps, minFps, maxFps) {
-    if (minFps === maxFps) return '#ffeb3b'; // Yellow for single value
+    if (fps === null || fps === undefined) return 'transparent';
     
-    // Normalise FPS to 0-1 range
-    const normalised = (fps - minFps) / (maxFps - minFps);
+    // Use 60 FPS as the maximum for green colouring
+    const targetMaxFps = 60;
     
-    // Create gradient: red (low) -> orange (mid) -> green (high)
+    // Normalise FPS to 0-1 range, capping at 60 FPS
+    const normalised = Math.min(fps / targetMaxFps, 1);
+    
+    // Create gradient: red (0 FPS) -> orange (30 FPS) -> green (60+ FPS)
     let red, green, blue;
     
     if (normalised < 0.5) {
-        // Red to Orange (0 to 0.5)
+        // Red to Orange (0 to 30 FPS)
         const t = normalised * 2; // 0 to 1
         red = 255;
         green = Math.round(165 * t); // 0 to 165 (orange)
         blue = 0;
     } else {
-        // Orange to Green (0.5 to 1)
+        // Orange to Green (30 to 60+ FPS)
         const t = (normalised - 0.5) * 2; // 0 to 1
         red = Math.round(255 * (1 - t)); // 255 to 0
         green = Math.round(165 + (90 * t)); // 165 to 255
