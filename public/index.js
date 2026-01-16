@@ -16,8 +16,11 @@ const E_TEST_NAME = {
 const CHARTS = generateCharts();
 const TESTS = generateTests();
 
-document.addEventListener('DOMContentLoaded', async function () { // Аналог $(document).ready(function(){
+
+document.addEventListener('DOMContentLoaded', async function () {
+    await initIndexedDB();
     await buildTestsTable();
+    await buildResultsSection();
 });
 
 function generateCharts () {
@@ -120,6 +123,84 @@ const buildRow = (table, testName, indexRow) => {
 // Cache for loaded test support data
 const testSupportCache = new Map();
 
+// IndexedDB setup for results display
+let db = null;
+const DB_NAME = 'ChartPerformanceResults';
+const DB_VERSION = 1;
+const STORE_NAME = 'testResults';
+
+async function initIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            db = request.result;
+            resolve();
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const database = event.target.result;
+            if (!database.objectStoreNames.contains(STORE_NAME)) {
+                const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                store.createIndex('chartLibrary', 'chartLibrary', { unique: false });
+                store.createIndex('testCase', 'testCase', { unique: false });
+            }
+        };
+    });
+}
+
+async function getAllTestResults() {
+    console.log('=== getAllTestResults CALLED ===');
+    
+    if (!db) {
+        console.error('Database not initialized for getAllTestResults');
+        return [];
+    }
+    
+    console.log('Database available for retrieval:', !!db);
+    
+    try {
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.getAll();
+            
+            request.onsuccess = (event) => {
+                const results = event.target.result || [];
+                console.log('=== RETRIEVAL SUCCESS ===');
+                console.log('Retrieved from IndexedDB:', results.length, 'records');
+                
+                results.forEach((result, index) => {
+                    console.log(`Record ${index + 1}:`, {
+                        id: result.id,
+                        chartLibrary: result.chartLibrary,
+                        testCase: result.testCase,
+                        resultsCount: result.results?.length,
+                        timestamp: result.timestamp,
+                        fullRecord: result
+                    });
+                });
+                
+                resolve(results);
+            };
+            
+            request.onerror = (event) => {
+                console.error('=== RETRIEVAL ERROR ===');
+                console.error('IndexedDB retrieval error:', event.target.error);
+                reject(event.target.error);
+            };
+        });
+        
+    } catch (error) {
+        console.error('=== getAllTestResults EXCEPTION ===');
+        console.error('Exception in getAllTestResults:', error);
+        console.error('Exception stack:', error.stack);
+        return [];
+    }
+}
+
 async function loadTestSupport(chartName) {
     if (testSupportCache.has(chartName)) {
         return testSupportCache.get(chartName);
@@ -184,4 +265,298 @@ function checkTestSupport(chartName, testName) {
     // For now, return true and let the async loading happen in buildTestsTable
     // This is a synchronous function but we need async loading
     return true;
+}
+
+async function buildResultsSection() {
+    const resultsContainer = document.getElementById('resultsContainer');
+    if (!resultsContainer) {
+        // Create results container if it doesn't exist
+        const container = document.createElement('div');
+        container.id = 'resultsContainer';
+        container.style.marginTop = '40px';
+        document.body.appendChild(container);
+        return buildResultsSection();
+    }
+    
+    // Clear existing content
+    resultsContainer.innerHTML = '<h2>Results</h2>';
+    
+    try {
+        const allResults = await getAllTestResults();
+        
+        // Group results by test case
+        const resultsByTestCase = {};
+        allResults.forEach(result => {
+            console.log('Processing result:', result);
+            if (!resultsByTestCase[result.testCase]) {
+                resultsByTestCase[result.testCase] = {};
+            }
+            resultsByTestCase[result.testCase][result.chartLibrary] = result.results;
+        });
+        
+        console.log('Results grouped by test case:', resultsByTestCase);
+        
+        // Create tables for each test case
+        Object.keys(E_TEST_NAME).forEach(testKey => {
+            const testName = E_TEST_NAME[testKey];
+            const testResults = resultsByTestCase[testName] || {};
+            
+            const section = document.createElement('div');
+            section.style.marginBottom = '30px';
+            
+            const heading = document.createElement('h3');
+            heading.textContent = testName;
+            section.appendChild(heading);
+            
+            const table = createResultsTable(testName, testResults);
+            section.appendChild(table);
+            
+            resultsContainer.appendChild(section);
+        });
+        
+    } catch (error) {
+        console.error('Failed to build results section:', error);
+        resultsContainer.innerHTML = '<h2>Results</h2><p>Error loading results from database.</p>';
+    }
+}
+
+function createResultsTable(testName, testResults) {
+    const table = document.createElement('table');
+    table.style.borderCollapse = 'collapse';
+    table.style.width = '100%';
+    table.style.marginBottom = '20px';
+    
+    // Create header row
+    const headerRow = table.insertRow();
+    headerRow.style.backgroundColor = '#f0f0f0';
+    headerRow.style.fontWeight = 'bold';
+    
+    // Add parameter columns
+    const paramsHeader = headerRow.insertCell();
+    paramsHeader.textContent = 'Parameters';
+    paramsHeader.style.border = '1px solid #ccc';
+    paramsHeader.style.padding = '8px';
+    paramsHeader.style.textAlign = 'left';
+    
+    // Add chart library columns
+    CHARTS.forEach(chart => {
+        const cell = headerRow.insertCell();
+        cell.textContent = `${chart.name} (Avg FPS)`;
+        cell.style.border = '1px solid #ccc';
+        cell.style.padding = '8px';
+        cell.style.textAlign = 'center';
+        console.log(`Added header for chart: ${chart.name}`);
+    });
+    
+    // Get all possible parameter combinations from test configurations
+    const paramCombinations = new Set();
+    
+    // Add parameter combinations from existing results
+    Object.values(testResults).forEach(results => {
+        if (results && Array.isArray(results)) {
+            results.forEach(result => {
+                if (result.config) {
+                    const params = `${result.config.points || 0} points, ${result.config.series || 0} series${result.config.charts ? `, ${result.config.charts} charts` : ''}`;
+                    paramCombinations.add(params);
+                }
+            });
+        }
+    });
+    
+    // Add all possible parameter combinations from test group configurations
+    // This ensures we show all test cases even if no results exist yet
+    const testGroups = {
+        1: { name: 'N line series M points', tests: [
+            { series: 100, points: 100 }, { series: 500, points: 500 }, { series: 1000, points: 1000 },
+            { series: 2000, points: 2000 }, { series: 4000, points: 4000 }, { series: 8000, points: 8000 }
+        ]},
+        2: { name: 'Brownian Motion Scatter Series', tests: [
+            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
+            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
+            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
+        ]},
+        3: { name: 'Line series which is unsorted in x', tests: [
+            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
+            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
+            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
+        ]},
+        4: { name: 'Point series, sorted, updating y-values', tests: [
+            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
+            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
+            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
+        ]},
+        5: { name: 'Column chart with data ascending in X', tests: [
+            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
+            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
+            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
+        ]},
+        6: { name: 'Candlestick series test', tests: [
+            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
+            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
+            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
+        ]},
+        7: { name: 'FIFO / ECG Chart Performance Test', tests: [
+            { series: 5, points: 100 }, { series: 5, points: 10000 }, { series: 5, points: 100000 },
+            { series: 5, points: 1000000 }, { series: 5, points: 5000000 }, { series: 5, points: 10000000 }
+        ]},
+        8: { name: 'Mountain Chart Performance Test', tests: [
+            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
+            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
+            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
+        ]},
+        9: { name: 'Series Compression Test', tests: [
+            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 100000 },
+            { series: 1, points: 1000000 }, { series: 1, points: 10000000 }
+        ]},
+        10: { name: 'Multi Chart Performance Test', tests: [
+            { series: 1, points: 10000, charts: 1 }, { series: 1, points: 10000, charts: 2 },
+            { series: 1, points: 10000, charts: 4 }, { series: 1, points: 10000, charts: 8 },
+            { series: 1, points: 10000, charts: 16 }, { series: 1, points: 10000, charts: 32 },
+            { series: 1, points: 10000, charts: 64 }, { series: 1, points: 10000, charts: 128 }
+        ]},
+        11: { name: 'Uniform Heatmap Performance Test', tests: [
+            { series: 1, points: 100 }, { series: 1, points: 200 }, { series: 1, points: 500 },
+            { series: 1, points: 1000 }, { series: 1, points: 2000 }, { series: 1, points: 4000 },
+            { series: 1, points: 8000 }, { series: 1, points: 16000 }
+        ]},
+        12: { name: '3D Point Cloud Performance Test', tests: [
+            { series: 1, points: 100 }, { series: 1, points: 1000 }, { series: 1, points: 10000 },
+            { series: 1, points: 100000 }, { series: 1, points: 1000000 }, { series: 1, points: 2000000 },
+            { series: 1, points: 4000000 }
+        ]},
+        13: { name: '3D Surface Performance Test', tests: [
+            { series: 1, points: 100 }, { series: 1, points: 200 }, { series: 1, points: 500 },
+            { series: 1, points: 1000 }, { series: 1, points: 2000 }, { series: 1, points: 4000 },
+            { series: 1, points: 8000 }
+        ]}
+    };
+    
+    // Find the matching test group and add all its parameter combinations
+    Object.values(testGroups).forEach(group => {
+        if (group.name === testName) {
+            group.tests.forEach(test => {
+                const params = `${test.points || 0} points, ${test.series || 0} series${test.charts ? `, ${test.charts} charts` : ''}`;
+                paramCombinations.add(params);
+            });
+        }
+    });
+    
+    // Convert to sorted array
+    const sortedParams = Array.from(paramCombinations).sort((a, b) => {
+        // Extract point count for sorting
+        const aPoints = parseInt(a.match(/(\d+) points/)?.[1] || '0');
+        const bPoints = parseInt(b.match(/(\d+) points/)?.[1] || '0');
+        return aPoints - bPoints;
+    });
+    
+    // Collect all FPS values for heatmap calculation
+    const allFpsValues = [];
+    Object.values(testResults).forEach(results => {
+        if (results && Array.isArray(results)) {
+            results.forEach(result => {
+                if (result.averageFPS && result.averageFPS > 0) {
+                    allFpsValues.push(result.averageFPS);
+                }
+            });
+        }
+    });
+    
+    const minFps = allFpsValues.length > 0 ? Math.min(...allFpsValues) : 0;
+    const maxFps = allFpsValues.length > 0 ? Math.max(...allFpsValues) : 100;
+    
+    // Create data rows
+    sortedParams.forEach(paramStr => {
+        const row = table.insertRow();
+        
+        // Parameters cell
+        const paramCell = row.insertCell();
+        paramCell.textContent = paramStr;
+        paramCell.style.border = '1px solid #ccc';
+        paramCell.style.padding = '8px';
+        paramCell.style.fontWeight = 'bold';
+        
+        // Chart library cells
+        CHARTS.forEach(chart => {
+            const cell = row.insertCell();
+            cell.style.border = '1px solid #ccc';
+            cell.style.padding = '8px';
+            cell.style.textAlign = 'center';
+            
+            // Find matching result for this chart and parameters
+            // Try both exact chart name and chart name with version
+            let chartResults = testResults[chart.name];
+            if (!chartResults) {
+                // Try to find by partial match (chart name might include version)
+                const chartKey = Object.keys(testResults).find(key => key.startsWith(chart.name));
+                if (chartKey) {
+                    chartResults = testResults[chartKey];
+                    console.log(`Found results using partial match: ${chartKey} for ${chart.name}`);
+                }
+            }
+            let fps = null;
+            
+            console.log(`Looking for results for ${chart.name}, paramStr: ${paramStr}`);
+            console.log('Chart results:', chartResults);
+            
+            if (chartResults && Array.isArray(chartResults)) {
+                console.log(`Found ${chartResults.length} results for ${chart.name}`);
+                const matchingResult = chartResults.find(result => {
+                    if (!result.config) {
+                        console.log('Result has no config:', result);
+                        return false;
+                    }
+                    const resultParams = `${result.config.points || 0} points, ${result.config.series || 0} series${result.config.charts ? `, ${result.config.charts} charts` : ''}`;
+                    console.log(`Comparing "${resultParams}" with "${paramStr}"`);
+                    return resultParams === paramStr;
+                });
+                
+                console.log('Matching result:', matchingResult);
+                if (matchingResult && matchingResult.averageFPS) {
+                    fps = matchingResult.averageFPS;
+                    console.log(`Found FPS: ${fps}`);
+                }
+            } else {
+                console.log(`No chart results found for ${chart.name} or not an array`);
+            }
+            
+            if (fps !== null) {
+                cell.textContent = fps.toFixed(2);
+                // Apply heatmap colouring
+                cell.style.backgroundColor = getFpsHeatmapColor(fps, minFps, maxFps);
+            } else {
+                cell.textContent = '-';
+                cell.style.backgroundColor = '#f9f9f9';
+                cell.style.color = '#999';
+            }
+        });
+    });
+    
+    return table;
+}
+
+function getFpsHeatmapColor(fps, minFps, maxFps) {
+    if (minFps === maxFps) return '#ffeb3b'; // Yellow for single value
+    
+    // Normalise FPS to 0-1 range
+    const normalised = (fps - minFps) / (maxFps - minFps);
+    
+    // Create gradient: red (low) -> orange (mid) -> green (high)
+    let red, green, blue;
+    
+    if (normalised < 0.5) {
+        // Red to Orange (0 to 0.5)
+        const t = normalised * 2; // 0 to 1
+        red = 255;
+        green = Math.round(165 * t); // 0 to 165 (orange)
+        blue = 0;
+    } else {
+        // Orange to Green (0.5 to 1)
+        const t = (normalised - 0.5) * 2; // 0 to 1
+        red = Math.round(255 * (1 - t)); // 255 to 0
+        green = Math.round(165 + (90 * t)); // 165 to 255
+        blue = 0;
+    }
+    
+    // Add alpha for readability
+    return `rgba(${red}, ${green}, ${blue}, 0.6)`;
 }

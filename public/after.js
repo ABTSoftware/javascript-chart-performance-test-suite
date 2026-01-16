@@ -1,5 +1,110 @@
+// IndexedDB setup for persistence
+let db = null;
+const DB_NAME = 'ChartPerformanceResults';
+const DB_VERSION = 1;
+const STORE_NAME = 'testResults';
+
+async function initIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            db = request.result;
+            resolve();
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const database = event.target.result;
+            if (!database.objectStoreNames.contains(STORE_NAME)) {
+                const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                store.createIndex('chartLibrary', 'chartLibrary', { unique: false });
+                store.createIndex('testCase', 'testCase', { unique: false });
+            }
+        };
+    });
+}
+
+async function saveTestResults(chartLibrary, testCase, results) {
+    console.log('=== saveTestResults CALLED ===');
+    
+    if (!db) {
+        console.error('Database not initialized in saveTestResults');
+        throw new Error('Database not initialized');
+    }
+    
+    console.log('Database is available:', !!db);
+    console.log('Database name:', db.name);
+    console.log('Database version:', db.version);
+    
+    try {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        console.log('Transaction created successfully');
+        
+        const store = transaction.objectStore(STORE_NAME);
+        console.log('Object store retrieved successfully');
+        
+        const data = {
+            id: `${chartLibrary}_${testCase}`,
+            chartLibrary,
+            testCase,
+            results,
+            timestamp: Date.now()
+        };
+        
+        console.log('=== DATA TO SAVE ===');
+        console.log('ID:', data.id);
+        console.log('Chart Library:', data.chartLibrary);
+        console.log('Test Case:', data.testCase);
+        console.log('Results type:', typeof data.results);
+        console.log('Results is array:', Array.isArray(data.results));
+        console.log('Results length:', data.results?.length);
+        console.log('Timestamp:', data.timestamp);
+        console.log('Full data object:', JSON.stringify(data, null, 2));
+        
+        return new Promise((resolve, reject) => {
+            const request = store.put(data);
+            
+            request.onsuccess = (event) => {
+                console.log('=== IndexedDB SAVE SUCCESS ===');
+                console.log('Save successful, result:', event.target.result);
+                console.log('Data saved with ID:', data.id);
+                resolve();
+            };
+            
+            request.onerror = (event) => {
+                console.error('=== IndexedDB SAVE ERROR ===');
+                console.error('Save error:', event.target.error);
+                console.error('Error code:', event.target.error?.code);
+                console.error('Error name:', event.target.error?.name);
+                console.error('Error message:', event.target.error?.message);
+                reject(event.target.error);
+            };
+            
+            transaction.oncomplete = () => {
+                console.log('Transaction completed successfully');
+            };
+            
+            transaction.onerror = (event) => {
+                console.error('Transaction error:', event.target.error);
+            };
+            
+            transaction.onabort = (event) => {
+                console.error('Transaction aborted:', event.target.error);
+            };
+        });
+        
+    } catch (error) {
+        console.error('=== saveTestResults EXCEPTION ===');
+        console.error('Exception in saveTestResults:', error);
+        console.error('Exception stack:', error.stack);
+        throw error;
+    }
+}
+
 (async function main() {
-    // Initialize system info and stats chart before tests start
+    // Initialize IndexedDB and system info before tests start
+    await initIndexedDB();
     displaySystemInfo();
     await initializeStatsChart();
     
@@ -296,6 +401,37 @@
     const fileName = `${eLibName()}_${eLibVersion()}.json`;
     downLoadJsonResult(result, fileName);
     createResultTable(result, testGroupName);
+    
+    // Persist results to IndexedDB
+    try {
+        const chartLibrary = `${eLibName()} ${eLibVersion()}`;
+        console.log('=== PERSISTENCE DEBUG START ===');
+        console.log('Chart Library:', chartLibrary);
+        console.log('Test Group Name:', testGroupName);
+        console.log('Result type:', typeof result);
+        console.log('Result is array:', Array.isArray(result));
+        console.log('Result length:', result?.length);
+        console.log('Result sample (first item):', result?.[0]);
+        
+        // Create a copy of results without frameTimings for persistence
+        const resultsForPersistence = result.map(item => {
+            const { frameTimings, ...itemWithoutFrameTimings } = item;
+            return itemWithoutFrameTimings;
+        });
+        
+        console.log('Results for persistence (without frameTimings):', resultsForPersistence);
+        
+        console.log('Calling saveTestResults directly...');
+        await saveTestResults(chartLibrary, testGroupName, resultsForPersistence);
+        console.log('saveTestResults completed successfully');
+        console.log('=== PERSISTENCE DEBUG END ===');
+    } catch (error) {
+        console.error('=== PERSISTENCE ERROR ===');
+        console.error('Error during persistence:', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+    }
 })();
 
 function getGPUInfo() {
