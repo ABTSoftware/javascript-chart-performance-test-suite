@@ -592,15 +592,15 @@ function createResultTable(resultArr, testGroupName) {
         <th>Points</th>
         <th>Series</th>
         <th>Charts</th>
-        <th>Lib Load</th>
-        <th>First Frame</th>
-        <th>Data Append</th>
-        <th>Memory (MByte)</th>
-        <th>Min FPS</th>
-        <th>Max FPS</th>
-        <th>Avg FPS</th>
-        <th>Total Frames</th>
-        <th>Status</th>
+        <th title="The time from test start for the library to load and create the chart surface, measured from timestampTestStart to timestampLibLoaded">Lib Load (ms)</th>
+        <th title="The total time from test start until the first frame with data is rendered, measured from timestampTestStart to timestampFirstFrameWithDataRendered. Includes library loading, data generation, data append, and first render time">First Frame (ms)</th>
+        <th title="The time to append initial data to the chart, measured from timestampDataGenerated to timestampInitialDataAppended">Data Append (ms)</th>
+        <th title="Memory measured using window.performance.memory.usedJSHeapSize at test completion. Note: Due to non-deterministic garbage collection timings, memory usage may fluctuate and not immediately reflect chart deletion">Memory (MByte)</th>
+        <th title="Minimum frames per second during the test, calculated from individual frame timings and capped at 240 FPS for realistic values">Min FPS</th>
+        <th title="Maximum frames per second during the test, calculated from individual frame timings and capped at 240 FPS for realistic values">Max FPS</th>
+        <th title="Average frames per second during the test, calculated as (1000 * totalFrames) / actualTestDuration">Avg FPS</th>
+        <th title="Total number of frames rendered during the test duration">Total Frames</th>
+        <th title="Test completion status: OK (successful), HANGING (exceeded time limit), ERROR_APPEND_DATA (data append failed), UNSUPPORTED (test not implemented), or SKIPPED (skipped due to previous failures)">Status</th>
     </tr>`;
     resStr += tableHeader;
     
