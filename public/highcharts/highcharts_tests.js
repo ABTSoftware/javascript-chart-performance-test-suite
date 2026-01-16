@@ -41,8 +41,7 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
 
     const createChart = async () => {
         if (seriesNum > 100) {
-            console.warn('Highcharts append data take too much time for series > 100 so we have to abort this test');
-            return false;
+            console.warn('Highcharts append data take too much time for series > 100 so we will skip further tests');
         }
         chart = Highcharts.chart('chart-root', {
             chart: {

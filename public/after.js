@@ -109,7 +109,13 @@
             perfTest.deleteChart();
             perfTest = undefined;
             gTestFinished(i, 0, 0, [], true, 'HANGING');
-            continue;
+            // Mark remaining tests as skipped
+            for (let j = i + 1; j < tests.length; j++) {
+                gTestStarted(tests[j], j);
+                gSetLibInfo(j, eLibName(), eLibVersion());
+                gTestFinished(j, 0, 0, [], true, 'SKIPPED');
+            }
+            break;
         }
         testStartTime = startTime; // Store for stats chart
 
