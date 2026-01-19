@@ -557,7 +557,15 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
         }
 
         DATA = [xValues, yValues];
-        const maxVal = Math.max(...yValues.map(Math.abs));
+        
+        // Find max absolute value efficiently without spread operator
+        let maxVal = 0;
+        for (let i = 0; i < yValues.length; i++) {
+            const absVal = Math.abs(yValues[i]);
+            if (absVal > maxVal) {
+                maxVal = absVal;
+            }
+        }
         delta = maxVal / 300;
     };
 
