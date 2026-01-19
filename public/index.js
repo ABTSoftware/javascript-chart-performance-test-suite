@@ -19,7 +19,6 @@ const TESTS = generateTests();
 
 document.addEventListener('DOMContentLoaded', async function () {
     await initIndexedDB();
-    await buildTestsTable();
     await buildResultsSection();
 });
 
@@ -71,54 +70,6 @@ function generateTests () {
     return tests;
 }
 
-const buildTestsTable = async () => {
-    const tableContainer = document.getElementById("testsTableContainer");
-    if (tableContainer && CHARTS && CHARTS.length > 0) {
-        const table = document.createElement("table");
-        
-        // Load test support data for all charts first
-        const supportPromises = CHARTS.map(chart => loadTestSupport(chart.name));
-        await Promise.all(supportPromises);
-        
-        TESTS.forEach((testName, indexRow) => {
-            buildRow(table, testName, indexRow);
-        });
-        tableContainer.appendChild(table);
-    }
-}
-
-const buildRow = (table, testName, indexRow) => {
-    const tr = table.insertRow();
-    const tdTest = tr.insertCell();
-    tdTest.innerHTML = testName || '';
-    CHARTS.forEach(chart => {
-        const td = tr.insertCell();
-        let href = chart.path || '';
-
-        if (chart.custom && chart.custom.length > 0) {
-            const customTest = chart.custom.find((customItem) => customItem.test === testName);
-            if (customTest) {
-                href = customTest.path
-            }
-        }
-
-        let html;
-        if (indexRow === 0) {
-            html = chart.name;
-        } else {
-            // Check if this test is supported by this chart library using cached data
-            const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
-            const isSupported = supportedTests.includes(testName);
-            
-            if (isSupported) {
-                html = `<a href="${href}?test_group_id=${indexRow}">RUN</a>`;
-            } else {
-                html = '<span style="color: #888; font-style: italic;">unsupported</span>';
-            }
-        }
-        td.innerHTML = html;
-    });
-}
 
 // Cache for loaded test support data
 const testSupportCache = new Map();
@@ -279,7 +230,7 @@ async function buildResultsSection() {
     }
     
     // Clear existing content
-    resultsContainer.innerHTML = '<h2>Results</h2>';
+    resultsContainer.innerHTML = '<h2>Test Cases / Results</h2>';
     
     try {
         const allResults = await getAllTestResults();
@@ -296,6 +247,10 @@ async function buildResultsSection() {
         
         console.log('Results grouped by test case:', resultsByTestCase);
         
+        // Load test support data for all charts first
+        const supportPromises = CHARTS.map(chart => loadTestSupport(chart.name));
+        await Promise.all(supportPromises);
+        
         // Create tables for each test case
         Object.keys(E_TEST_NAME).forEach(testKey => {
             const testName = E_TEST_NAME[testKey];
@@ -305,7 +260,69 @@ async function buildResultsSection() {
             section.style.marginBottom = '30px';
             
             const heading = document.createElement('h3');
-            heading.textContent = testName;
+            heading.style.display = 'flex';
+            heading.style.alignItems = 'center';
+            heading.style.gap = '20px';
+            heading.style.marginBottom = '10px';
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.textContent = testName;
+            heading.appendChild(titleSpan);
+            
+            // Add RUN buttons for each chart library
+            const runButtonsContainer = document.createElement('div');
+            runButtonsContainer.style.display = 'flex';
+            runButtonsContainer.style.gap = '10px';
+            runButtonsContainer.style.flexWrap = 'wrap';
+            
+            // Find the test group ID for this test name
+            const testGroupId = Object.keys(E_TEST_NAME).find(key => E_TEST_NAME[key] === testName);
+            const testGroupIndex = testGroupId ? Object.keys(E_TEST_NAME).indexOf(testGroupId) + 1 : null;
+            
+            CHARTS.forEach(chart => {
+                // Check if this test is supported by this chart library
+                const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
+                const isSupported = supportedTests.includes(testName);
+                
+                if (isSupported && testGroupIndex) {
+                    let href = chart.path || '';
+                    
+                    // Check for custom test paths
+                    if (chart.custom && chart.custom.length > 0) {
+                        const customTest = chart.custom.find((customItem) => customItem.test === testName);
+                        if (customTest) {
+                            href = customTest.path;
+                        }
+                    }
+                    
+                    const runButton = document.createElement('button');
+                    runButton.textContent = `RUN ${chart.name}`;
+                    runButton.style.padding = '5px 10px';
+                    runButton.style.fontSize = '12px';
+                    runButton.style.backgroundColor = '#007bff';
+                    runButton.style.color = 'white';
+                    runButton.style.border = 'none';
+                    runButton.style.borderRadius = '3px';
+                    runButton.style.cursor = 'pointer';
+                    
+                    runButton.addEventListener('click', () => {
+                        const url = `${href}?test_group_id=${testGroupIndex}`;
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                    });
+                    
+                    runButton.addEventListener('mouseenter', () => {
+                        runButton.style.backgroundColor = '#0056b3';
+                    });
+                    
+                    runButton.addEventListener('mouseleave', () => {
+                        runButton.style.backgroundColor = '#007bff';
+                    });
+                    
+                    runButtonsContainer.appendChild(runButton);
+                }
+            });
+            
+            heading.appendChild(runButtonsContainer);
             section.appendChild(heading);
             
             const table = createResultsTable(testName, testResults);
@@ -316,7 +333,7 @@ async function buildResultsSection() {
         
     } catch (error) {
         console.error('Failed to build results section:', error);
-        resultsContainer.innerHTML = '<h2>Results</h2><p>Error loading results from database.</p>';
+        resultsContainer.innerHTML = '<h2>Test Cases / Results</h2><p>Error loading results from database.</p>';
     }
 }
 
