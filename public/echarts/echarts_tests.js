@@ -763,12 +763,18 @@ function eCandlestickPerformanceTest(seriesNum, pointsNum) {
             }]
         });
 
-        // Get current Y range for delta calculation
-        const allValues = candlestickData.flat();
-        currentYRange = {
-            min: Math.min(...allValues),
-            max: Math.max(...allValues)
-        };
+        // Get current Y range for delta calculation efficiently without spread operator
+        let min = Number.MAX_VALUE;
+        let max = Number.MIN_VALUE;
+        for (let i = 0; i < candlestickData.length; i++) {
+            const candle = candlestickData[i];
+            for (let j = 0; j < candle.length; j++) {
+                const value = candle[j];
+                if (value < min) min = value;
+                if (value > max) max = value;
+            }
+        }
+        currentYRange = { min, max };
         
         const maxVal = Math.max(Math.abs(currentYRange.min), Math.abs(currentYRange.max));
         delta = maxVal / 300;
