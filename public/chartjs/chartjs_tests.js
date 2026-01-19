@@ -55,9 +55,11 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
                 animation: {
                     duration: 0, // general animation time
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chart-root'), config);
+        CHART = new Chart(document.getElementById('chartjs-root'), config);
     };
 
     const updateYVisibleRangeInner = (chart$, min, max) => {
@@ -170,9 +172,11 @@ function eScatterPerformanceTest(seriesNum, pointsNum) {
                 animation: {
                     duration: 0,
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chart-root'), config);
+        CHART = new Chart(document.getElementById('chartjs-root'), config);
     };
 
     const generateNextPoints = (pointsNum$, data) => {
@@ -259,9 +263,11 @@ function eScatterLinePerformanceTest(seriesNum, pointsNum) {
                 animation: {
                     duration: 0,
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chart-root'), config);
+        CHART = new Chart(document.getElementById('chartjs-root'), config);
     };
 
     const generateNextPoints = (pointsNum$, data) => {
@@ -358,9 +364,11 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
                 animation: {
                     duration: 0,
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chart-root'), config);
+        CHART = new Chart(document.getElementById('chartjs-root'), config);
     };
 
     const generateNextPoints = (pointsNum$, data) => {
@@ -446,16 +454,19 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
                     },
                 },
                 animation: {
-                    duration: 0,
+                    duration: 0
                 },
+                responsiveAnimationDuration: 0,
                 elements: {
                     point: {
                         radius: 0,
                     },
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chart-root'), config);
+        CHART = new Chart(document.getElementById('chartjs-root'), config);
     };
 
     const generateData = () => {
@@ -483,7 +494,7 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
                 borderColor: '#1f4e79',
             },
         ];
-        CHART.update();
+        CHART.update('none');
     };
 
     const updateChart = (_frame) => {
@@ -497,7 +508,7 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
         };
         min += delta;
         max += delta;
-        CHART.update();
+        CHART.update('none');
         return CHART.data.datasets[0].data.length;
     };
 
@@ -521,7 +532,7 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
 function eCandlestickPerformanceTest(seriesNum, pointsNum) {
-    const ctx = document.getElementById('chart-root').getContext('2d');
+    const ctx = document.getElementById('chartjs-root').getContext('2d');
     let CHART;
     let DATA;
     let delta;
@@ -544,6 +555,8 @@ function eCandlestickPerformanceTest(seriesNum, pointsNum) {
                         radius: 0,
                     },
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         });
     };
@@ -650,9 +663,11 @@ function eFifoEcgPerformanceTest(seriesNum, pointsNum, incrementPoints) {
                 animation: {
                     duration: 0,
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chart-root'), config);
+        CHART = new Chart(document.getElementById('chartjs-root'), config);
     };
 
     const generateDataInner = (seriesNum$, pointsNum$, startIndex = 0) => {
@@ -748,9 +763,11 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
                         radius: 0,
                     },
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chart-root'), config);
+        CHART = new Chart(document.getElementById('chartjs-root'), config);
     };
 
     const generateData = () => {
@@ -849,9 +866,11 @@ function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints
                 animation: {
                     duration: 0,
                 },
+                responsive: true,
+                maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chart-root'), config);
+        CHART = new Chart(document.getElementById('chartjs-root'), config);
     };
 
     const generateDataInner = (pointsNum$, startIndex) => {
@@ -946,7 +965,7 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
         const chartWidth = 100 / cols;
         const chartHeight = 100 / rows;
 
-        // Create container divs for each chart in grid layout
+        // Create container canvases for each chart in grid layout
         for (let c = 0; c < chartsNum; c++) {
             const chartDiv = document.createElement('div');
             chartDiv.id = `chart-${c}`;
@@ -955,11 +974,12 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
             chartDiv.style.position = 'absolute';
             chartDiv.style.left = `${(c % cols) * chartWidth}%`;
             chartDiv.style.top = `${Math.floor(c / cols) * chartHeight}%`;
+            const chartCanvas = document.createElement('canvas');
+            chartCanvas.id = `chart-canvas-${c}`;
+            chartCanvas.style.display = 'block';
+            chartDiv.appendChild(chartCanvas);
             chartRootDiv.appendChild(chartDiv);
         }
-
-        // Set chart root to use absolute positioning
-        chartRootDiv.style.position = 'relative';
 
         // Create each chart
         try {
@@ -983,9 +1003,11 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
                         animation: {
                             duration: 0,
                         },
+                        responsive: true,
+                        maintainAspectRatio: false
                     },
                 };
-                const chart = new Chart(document.getElementById(`chart-${c}`), config);
+                const chart = new Chart(document.getElementById(`chart-canvas-${c}`), config);
                 CHARTS.push(chart);
             }
         } catch (error) {
