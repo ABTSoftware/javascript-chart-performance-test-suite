@@ -511,9 +511,17 @@ function createResultsTable(testName, testResults) {
                 });
                 
                 console.log('Matching result:', matchingResult);
-                if (matchingResult && matchingResult.averageFPS) {
-                    fps = matchingResult.averageFPS;
-                    console.log(`Found FPS: ${fps}`);
+                if (matchingResult) {
+                    // Check if the result has an error condition
+                    if (matchingResult.isErrored && matchingResult.errorReason) {
+                        cell.textContent = matchingResult.errorReason;
+                        cell.style.backgroundColor = '#ffcccc'; // Red background for errors
+                        cell.style.color = '#cc0000'; // Dark red text
+                        cell.style.fontWeight = 'bold';
+                    } else if (matchingResult.averageFPS) {
+                        fps = matchingResult.averageFPS;
+                        console.log(`Found FPS: ${fps}`);
+                    }
                 }
             } else {
                 console.log(`No chart results found for ${chart.name} or not an array`);
@@ -523,7 +531,7 @@ function createResultsTable(testName, testResults) {
                 cell.textContent = fps.toFixed(2);
                 // Apply heatmap colouring
                 cell.style.backgroundColor = getFpsHeatmapColor(fps, minFps, maxFps);
-            } else {
+            } else if (!cell.textContent) { // Only set default if no error message was set
                 cell.textContent = '-';
                 cell.style.backgroundColor = '#f9f9f9';
                 cell.style.color = '#999';

@@ -41,6 +41,11 @@ const G_TEST_GROUPS = {
                 testDuration,
             },
             {
+                series: 200,
+                points: 200,
+                testDuration,
+            },
+            {
                 series: 500,
                 points: 500,
                 testDuration,
