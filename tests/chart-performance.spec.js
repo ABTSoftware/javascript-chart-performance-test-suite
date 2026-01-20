@@ -73,6 +73,7 @@ test.describe('Test each chart library', () => {
             // Generate PDF filename from URL - sanitize the href for filename
             const pdfFilename = href.replace(/[^a-zA-Z0-9]/g, '-') + '.pdf';
             await page.pdf({ path: pdfFilename, format: 'A4' });
+            await page.close();
         });
     }
 
@@ -84,5 +85,6 @@ test.describe('Test each chart library', () => {
 
         // Save the initial page as PDF
         await page.pdf({ path: 'results-summary-page.pdf', format: 'A4' });
+        await page.close()
     });
 });
