@@ -294,31 +294,32 @@ async function buildResultsSection() {
                             href = customTest.path;
                         }
                     }
-                    
-                    const runButton = document.createElement('button');
-                    runButton.textContent = `RUN ${chart.name}`;
-                    runButton.style.padding = '5px 10px';
-                    runButton.style.fontSize = '12px';
-                    runButton.style.backgroundColor = '#007bff';
-                    runButton.style.color = 'white';
-                    runButton.style.border = 'none';
-                    runButton.style.borderRadius = '3px';
-                    runButton.style.cursor = 'pointer';
-                    
-                    runButton.addEventListener('click', () => {
-                        const url = `${href}?test_group_id=${testGroupIndex}`;
-                        window.open(url, '_blank', 'noopener,noreferrer');
+
+                    const runLink = document.createElement('a');
+                    runLink.textContent = `RUN ${chart.name}`;
+                    runLink.className = 'run-test-link';
+                    runLink.href = `${href}?test_group_id=${testGroupIndex}`;
+                    runLink.target = '_blank';
+                    runLink.rel = 'noopener noreferrer';
+                    runLink.style.padding = '5px 10px';
+                    runLink.style.fontSize = '12px';
+                    runLink.style.backgroundColor = '#007bff';
+                    runLink.style.color = 'white';
+                    runLink.style.border = 'none';
+                    runLink.style.borderRadius = '3px';
+                    runLink.style.cursor = 'pointer';
+                    runLink.style.textDecoration = 'none';
+                    runLink.style.display = 'inline-block';
+
+                    runLink.addEventListener('mouseenter', () => {
+                        runLink.style.backgroundColor = '#0056b3';
                     });
-                    
-                    runButton.addEventListener('mouseenter', () => {
-                        runButton.style.backgroundColor = '#0056b3';
+
+                    runLink.addEventListener('mouseleave', () => {
+                        runLink.style.backgroundColor = '#007bff';
                     });
-                    
-                    runButton.addEventListener('mouseleave', () => {
-                        runButton.style.backgroundColor = '#007bff';
-                    });
-                    
-                    runButtonsContainer.appendChild(runButton);
+
+                    runButtonsContainer.appendChild(runLink);
                 }
             });
             
@@ -326,6 +327,7 @@ async function buildResultsSection() {
             section.appendChild(heading);
             
             const table = createResultsTable(testName, testResults);
+            table.classList.add('results-ready')
             section.appendChild(table);
             
             resultsContainer.appendChild(section);

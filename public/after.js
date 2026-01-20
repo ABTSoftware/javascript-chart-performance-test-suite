@@ -400,7 +400,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
     console.log('result', result);
     const fileName = `${eLibName()}_${eLibVersion()}.json`;
     downLoadJsonResult(result, fileName);
-    createResultTable(result, testGroupName);
+    const tableElement = createResultTable(result, testGroupName);
     
     // Persist results to IndexedDB
     try {
@@ -432,6 +432,8 @@ async function saveTestResults(chartLibrary, testCase, results) {
         console.error('Error name:', error.name);
         console.error('Error message:', error.message);
     }
+
+    tableElement?.classList.add("results-table-ready");
 })();
 
 function getGPUInfo() {
@@ -799,4 +801,6 @@ function createResultTable(resultArr, testGroupName) {
 
     const tableElement = document.getElementById('result-table');
     tableElement.innerHTML = resStr + note;
+
+    return tableElement
 }
