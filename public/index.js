@@ -1,18 +1,3 @@
-const E_TEST_NAME = {
-    N_X_M: "N line series M points",
-    SCATTER: "Brownian Motion Scatter Series",
-    LINE: "Line series which is unsorted in x",
-    POINT_LINE: "Point series, sorted, updating y-values",
-    COLUMN: "Column chart with data ascending in X",
-    CANDLESTICK: "Candlestick series test",
-    FIFO: "FIFO / ECG Chart Performance Test",
-    MOUNTAIN: "Mountain Chart Performance Test",
-    SERIES_COMPRESSION: "Series Compression Test",
-    MULTI_CHART: "Multi Chart Performance Test",
-    HEATMAP: "Uniform Heatmap Performance Test",
-    POINTCLOUD_3D: "3D Point Cloud Performance Test",
-    SURFACE_3D: "3D Surface Performance Test"
-};
 const CHARTS = generateCharts();
 const TESTS = generateTests();
 
@@ -34,7 +19,7 @@ function generateCharts () {
         custom: [
             {
                 path: 'highcharts/highcharts_stock_charts.html',
-                test: E_TEST_NAME.CANDLESTICK
+                test: G_TEST_GROUP_NAME.CANDLESTICK_PERFORMANCE_TEST
             }
         ]
     });
@@ -44,7 +29,7 @@ function generateCharts () {
         custom: [
             {
                 path: 'chartjs/chartjs_candlestick.html',
-                test: E_TEST_NAME.CANDLESTICK
+                test: G_TEST_GROUP_NAME.CANDLESTICK_PERFORMANCE_TEST
             }
         ]
     });
@@ -64,8 +49,8 @@ function generateCharts () {
 function generateTests () {
     const tests = [];
     tests.push("");
-    for (key in E_TEST_NAME) {
-        tests.push(E_TEST_NAME[key]);
+    for (key in G_TEST_GROUP_NAME) {
+        tests.push(G_TEST_GROUP_NAME[key]);
     }
     return tests;
 }
@@ -170,7 +155,7 @@ async function loadTestSupport(chartName) {
     const scriptPath = scriptPaths[chartName];
     if (!scriptPath) {
         // Unknown chart, assume all tests supported
-        const allTests = Object.values(E_TEST_NAME);
+        const allTests = Object.values(G_TEST_GROUP_NAME);
         testSupportCache.set(chartName, allTests);
         return allTests;
     }
@@ -193,7 +178,7 @@ async function loadTestSupport(chartName) {
             supportedTests = window.getSupportedTests();
         } else {
             // Fallback: assume all tests supported if function not found
-            supportedTests = Object.values(E_TEST_NAME);
+            supportedTests = Object.values(G_TEST_GROUP_NAME);
         }
 
         // Clean up the script element
@@ -206,7 +191,7 @@ async function loadTestSupport(chartName) {
     } catch (error) {
         console.warn(`Failed to load test support for ${chartName}:`, error);
         // Fallback: assume all tests supported
-        const allTests = Object.values(E_TEST_NAME);
+        const allTests = Object.values(G_TEST_GROUP_NAME);
         testSupportCache.set(chartName, allTests);
         return allTests;
     }
@@ -252,8 +237,8 @@ async function buildResultsSection() {
         await Promise.all(supportPromises);
         
         // Create tables for each test case
-        Object.keys(E_TEST_NAME).forEach(testKey => {
-            const testName = E_TEST_NAME[testKey];
+        Object.keys(G_TEST_GROUP_NAME).forEach(testKey => {
+            const testName = G_TEST_GROUP_NAME[testKey];
             const testResults = resultsByTestCase[testName] || {};
             
             const section = document.createElement('div');
@@ -276,12 +261,11 @@ async function buildResultsSection() {
             runButtonsContainer.style.flexWrap = 'wrap';
             
             // Find the test group ID for this test name
-            const testGroupId = Object.keys(E_TEST_NAME).find(key => E_TEST_NAME[key] === testName);
-            const testGroupIndex = testGroupId ? Object.keys(E_TEST_NAME).indexOf(testGroupId) + 1 : null;
+            const testGroupIndex = Object.keys(G_TEST_GROUPS).find(key => G_TEST_GROUPS[key].name === testName);
             
             CHARTS.forEach(chart => {
                 // Check if this test is supported by this chart library
-                const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
+                const supportedTests = testSupportCache.get(chart.name) || Object.values(G_TEST_GROUP_NAME);
                 const isSupported = supportedTests.includes(testName);
                 
                 if (isSupported && testGroupIndex) {
@@ -382,76 +366,8 @@ function createResultsTable(testName, testResults) {
         }
     });
     
-    // Add all possible parameter combinations from test group configurations
-    // This ensures we show all test cases even if no results exist yet
-    const testGroups = {
-        1: { name: 'N line series M points', tests: [
-            { series: 100, points: 100 }, { series: 500, points: 500 }, { series: 1000, points: 1000 },
-            { series: 2000, points: 2000 }, { series: 4000, points: 4000 }, { series: 8000, points: 8000 }
-        ]},
-        2: { name: 'Brownian Motion Scatter Series', tests: [
-            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
-            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
-            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
-        ]},
-        3: { name: 'Line series which is unsorted in x', tests: [
-            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
-            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
-            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
-        ]},
-        4: { name: 'Point series, sorted, updating y-values', tests: [
-            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
-            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
-            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
-        ]},
-        5: { name: 'Column chart with data ascending in X', tests: [
-            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
-            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
-            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
-        ]},
-        6: { name: 'Candlestick series test', tests: [
-            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
-            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
-            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
-        ]},
-        7: { name: 'FIFO / ECG Chart Performance Test', tests: [
-            { series: 5, points: 100 }, { series: 5, points: 10000 }, { series: 5, points: 100000 },
-            { series: 5, points: 1000000 }, { series: 5, points: 5000000 }, { series: 5, points: 10000000 }
-        ]},
-        8: { name: 'Mountain Chart Performance Test', tests: [
-            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 50000 },
-            { series: 1, points: 100000 }, { series: 1, points: 200000 }, { series: 1, points: 500000 },
-            { series: 1, points: 1000000 }, { series: 1, points: 5000000 }, { series: 1, points: 10000000 }
-        ]},
-        9: { name: 'Series Compression Test', tests: [
-            { series: 1, points: 1000 }, { series: 1, points: 10000 }, { series: 1, points: 100000 },
-            { series: 1, points: 1000000 }, { series: 1, points: 10000000 }
-        ]},
-        10: { name: 'Multi Chart Performance Test', tests: [
-            { series: 1, points: 10000, charts: 1 }, { series: 1, points: 10000, charts: 2 },
-            { series: 1, points: 10000, charts: 4 }, { series: 1, points: 10000, charts: 8 },
-            { series: 1, points: 10000, charts: 16 }, { series: 1, points: 10000, charts: 32 },
-            { series: 1, points: 10000, charts: 64 }, { series: 1, points: 10000, charts: 128 }
-        ]},
-        11: { name: 'Uniform Heatmap Performance Test', tests: [
-            { series: 1, points: 100 }, { series: 1, points: 200 }, { series: 1, points: 500 },
-            { series: 1, points: 1000 }, { series: 1, points: 2000 }, { series: 1, points: 4000 },
-            { series: 1, points: 8000 }, { series: 1, points: 16000 }
-        ]},
-        12: { name: '3D Point Cloud Performance Test', tests: [
-            { series: 1, points: 100 }, { series: 1, points: 1000 }, { series: 1, points: 10000 },
-            { series: 1, points: 100000 }, { series: 1, points: 1000000 }, { series: 1, points: 2000000 },
-            { series: 1, points: 4000000 }
-        ]},
-        13: { name: '3D Surface Performance Test', tests: [
-            { series: 1, points: 100 }, { series: 1, points: 200 }, { series: 1, points: 500 },
-            { series: 1, points: 1000 }, { series: 1, points: 2000 }, { series: 1, points: 4000 },
-            { series: 1, points: 8000 }
-        ]}
-    };
-    
     // Find the matching test group and add all its parameter combinations
-    Object.values(testGroups).forEach(group => {
+    Object.values(G_TEST_GROUPS).forEach(group => {
         if (group.name === testName) {
             group.tests.forEach(test => {
                 const params = `${test.points || 0} points, ${test.series || 0} series${test.charts ? `, ${test.charts} charts` : ''}`;

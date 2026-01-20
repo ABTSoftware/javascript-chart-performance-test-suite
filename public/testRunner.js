@@ -1,3 +1,137 @@
+// ------ UTILITY FUNCTIONS ------
+
+// Fast pseudorandom seeded number generator using XorShift32 algorithm
+// This is significantly faster than Math.random() and provides better distribution than LCG
+let fastRandomSeed = 1;
+const FAST_RANDOM_MULTIPLIER = 1 / 4294967296; // Pre-calculated constant for 0-1 range conversion (1/2^32)
+function fastRandom() {
+    // XorShift32 algorithm - very fast with good statistical properties
+    fastRandomSeed ^= fastRandomSeed << 13;
+    fastRandomSeed ^= fastRandomSeed >>> 17;
+    fastRandomSeed ^= fastRandomSeed << 5;
+    fastRandomSeed = fastRandomSeed >>> 0; // Ensure 32-bit unsigned integer
+    return fastRandomSeed * FAST_RANDOM_MULTIPLIER; // Convert to 0-1 range using pre-calculated multiplier
+}
+
+function gGetTestGroup(testGroupId) {
+    return G_TEST_GROUPS[testGroupId];
+}
+
+// ------ PERFORMANCE MEASUREMENT ------
+
+const resultRecord = {
+    config: undefined,
+    timestampTestStart: undefined,
+    timestampLibLoaded: undefined,
+    timestampFirstFrameWithoutDataRendered: undefined,
+    timestampDataGenerated: undefined,
+    timestampInitialDataAppended: undefined,
+    timestampTestFinish: undefined,
+    //
+    heapSizeTestStart: undefined,
+    heapSizeTestFinish: undefined,
+    //
+    benchmarkTimeLibLoad: undefined,
+    benchmarkTimeFirstFrame: undefined,
+    dataGenerationTime: undefined,
+    benchmarkTimeInitialDataAppend: undefined,
+    updateFramesTime: undefined,
+    numberOfFrames: undefined,
+    benchmarkFPS: undefined,
+    averageFPS: undefined,
+    minFPS: undefined,
+    maxFPS: undefined,
+    frameTimings: undefined,
+    isErrored: false,
+    errorReason: null,
+};
+const G_RESULT = [];
+
+// Methods to update RESULT
+function gGetResultRecord(index) {
+    if (!G_RESULT[index]) {
+        G_RESULT.push({ ...resultRecord });
+    }
+    return G_RESULT[index];
+}
+
+function gSetLibInfo(index, libName, libVersion) {
+    const result = gGetResultRecord(index);
+    result.configLibName = libName;
+    result.configLibVersion = libVersion;
+}
+
+// STEPS
+function gTestStarted(testConfig, index) {
+    const result = gGetResultRecord(index);
+    result.config = testConfig;
+    result.timestampTestStart = performance.now();
+    return result.timestampTestStart;
+}
+
+function gTestLibLoaded(index) {
+    const result = gGetResultRecord(index);
+    result.timestampLibLoaded = performance.now();
+    result.benchmarkTimeLibLoad = result.timestampLibLoaded - result.timestampTestStart;
+    return result.timestampLibLoaded;
+}
+
+function gTestFirstFrameRendered(index) {
+    const result = gGetResultRecord(index);
+    result.timestampFirstFrameWithDataRendered = performance.now();
+    result.benchmarkTimeFirstFrame = result.timestampFirstFrameWithDataRendered - result.timestampTestStart;
+    return result.timestampFirstFrameWithDataRendered;
+}
+
+function gTestDataGenerated(index) {
+    const result = gGetResultRecord(index);
+    result.timestampDataGenerated = performance.now();
+    result.dataGenerationTime = result.timestampDataGenerated - result.timestampFirstFrameWithoutDataRendered;
+    return result.timestampDataGenerated;
+}
+
+function gTestInitialDataAppended(index) {
+    const result = gGetResultRecord(index);
+    result.timestampInitialDataAppended = performance.now();
+    result.benchmarkTimeInitialDataAppend = result.timestampInitialDataAppended - result.timestampDataGenerated;
+    return result.timestampInitialDataAppended;
+}
+
+function gTestFinished(index, frames, memory, frameTimings, isErrored = false, errorReason = null) {
+    const result = gGetResultRecord(index);
+    result.numberOfFrames = frames;
+    result.timestampTestFinish = performance.now();
+    result.updateFramesTime = result.timestampTestFinish - result.timestampInitialDataAppended;
+    result.frameTimings = frameTimings;
+    result.isErrored = isErrored;
+    result.errorReason = errorReason;
+    
+    // Calculate average FPS using actual test time (not expected testDuration)
+    result.averageFPS = (1000 * frames) / result.updateFramesTime;
+    result.benchmarkFPS = result.averageFPS; // Keep for backwards compatibility
+    
+    // Calculate min/max FPS from individual frame timings
+    if (frameTimings && frameTimings.length > 0) {
+        const MAX_REALISTIC_FPS = 240; // Cap at realistic monitor refresh rate
+        const fpsValues = frameTimings.map(timing => {
+            const fps = 1000 / timing;
+            // Cap FPS at realistic maximum to avoid skewing statistics with cached/empty frames
+            return Math.min(fps, MAX_REALISTIC_FPS);
+        });
+        
+        result.minFPS = Math.min(...fpsValues);
+        result.maxFPS = Math.max(...fpsValues);
+    } else {
+        // Fallback if no frame timings available
+        result.minFPS = result.averageFPS;
+        result.maxFPS = result.averageFPS;
+    }
+    
+    result.memory = memory;
+}
+
+// ------ INDEXEDDB PERSISTENCE ------
+
 // IndexedDB setup for persistence
 let db = null;
 const DB_NAME = 'ChartPerformanceResults';
@@ -101,6 +235,8 @@ async function saveTestResults(chartLibrary, testCase, results) {
         throw error;
     }
 }
+
+// ------ MAIN TEST RUNNER ------
 
 (async function main() {
     // Initialize IndexedDB and system info before tests start
@@ -436,6 +572,8 @@ async function saveTestResults(chartLibrary, testCase, results) {
     tableElement?.classList.add("results-table-ready");
 })();
 
+// ------ SYSTEM INFORMATION ------
+
 function getGPUInfo() {
     try {
         const canvas = document.createElement('canvas');
@@ -601,6 +739,8 @@ function updateStatsChart(instantaneousFPS) {
 }
 
 
+// ------ RENDERING UTILITIES ------
+
 function nextFrameRender() {
     return new Promise((resolve) => requestAnimationFrame(resolve));
 }
@@ -649,6 +789,8 @@ function downLoadJsonResult(jsonObject, filename) {
         document.body.removeChild(tempTextArea);
     });
 }
+
+// ------ TABLE GENERATION AND UTILITIES ------
 
 function roundToSignificantFigures(num, sigFigs) {
     if (num === 0 || num === null || num === undefined) return num;
