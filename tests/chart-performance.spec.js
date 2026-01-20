@@ -18,21 +18,42 @@ try {
 /** @type {string[]} */
 const hrefs = testData.hrefs;
 
+// Shared context and page for all tests to maintain IndexedDB state
+/** @type {import('@playwright/test').BrowserContext} */
+let context;
+
+// Path to store the browser state (including IndexedDB)
+const storageStatePath = path.join(process.cwd(), 'tests', 'storage-state.json');
+
 // Configure tests to run serially and share browser context for IndexedDB persistence
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Test each chart library', () => {
-    // Shared context and page for all tests to maintain IndexedDB state
-    /** @type {import('@playwright/test').BrowserContext} */
-    let context;
-
     test.beforeAll(async ({ browser }) => {
+        console.warn('beforeAll');
         // Create a persistent context that will be shared across all tests
-        context = await browser.newContext();
+        if (!context) {
+            console.warn('get new context');
+
+            // Load existing storage state if it exists
+            /** @type {import('@playwright/test').BrowserContextOptions} */
+            const contextOptions = {};
+            if (fs.existsSync(storageStatePath)) {
+                console.log('Loading existing storage state from:', storageStatePath);
+                contextOptions.storageState = storageStatePath;
+            }
+
+            context = await browser.newContext(contextOptions);
+        }
     });
 
     test.afterAll(async () => {
-        // ...
+        // Save storage state (including IndexedDB) for future test runs
+        if (context) {
+            console.log('Saving storage state to:', storageStatePath);
+            await context.storageState({ path: storageStatePath, indexedDB: true });
+            await context.close();
+        }
     });
 
     for (const href of hrefs) {
