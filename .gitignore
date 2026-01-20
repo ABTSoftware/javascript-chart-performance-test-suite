@@ -7,3 +7,13 @@ package-lock.json
 ~$test-results.xlsx
 .aider*
 .vite/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+/tests/test-urls.json
+/tests/storage-state.json
+*.pdf
