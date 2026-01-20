@@ -226,6 +226,11 @@ The automated test solution runs the app and opens each test case sequentially.
 At the end of each test case it screenshots the page with results in the table and saves them as PDF.  
 After all test cases were executed the final "Results Summary" test in suite takes a PDF snapshot of the final results table at main app page.  
 
+**Prerequisites**
+Playwright setup: `npm playwright install`
+
+**How to run**
+
 - `npm run test` - default runs tests in headless mode
 - `npm run test:headed` - runs tests in headed mode
 - *Playwright UI Mode*: run either of scripts with `-- --ui`, e.g. `npm run test:headed -- --ui`
