@@ -16,3 +16,4 @@ package-lock.json
 /playwright/.auth/
 /tests/test-urls.json
 /tests/storage-state.json
+*.pdf
