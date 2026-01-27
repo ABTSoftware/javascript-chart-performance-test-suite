@@ -1,7 +1,21 @@
 # JavaScript Charts Performance Test Suite
 
-This test suite demonstrates the performance of several JavaScript Chart libraries in a variety of test cases, 
-to determine which perform the best under demanding and varied conditions.
+## Executive Summary (TL;DR)
+
+This benchmark suite compares the rendering performance of popular JavaScript charting libraries under extreme workloads:
+
+- many series
+- different series types (line, scatter, column, mountain, area, candlestick, heatmap, 3D surface, 3D point cloud)
+- millions of data-points
+- real-time streaming and data ingestion tests
+- multiple charts on screen (up to 128 charts)
+- heatmaps and 3D charts
+
+### Key Conclusions
+
+- GPU-first architectures scale orders of magnitude further than CPU / Canvas / SVG-based libraries.
+- Libraries designed for general-purpose dashboards degrade rapidly under large datasets or high update rates.
+- Sustained 60 FPS at large scale is only achievable with WebGL-based rendering and optimized data pipelines.
 
 ## What Chart Libraries are tested? 
 
@@ -14,10 +28,20 @@ This Test suite performs JavaScript Chart stress tests and compares the followin
 - Apache eCharts (with GL series types where available)
 - uPlot
 
-> Care has been taken to ensure the latest version of libraries are used, and tests are fair and equitable where feature differences or API differences occur between the libraries.  
-> For example: Data is generated in the same manner, all test cases use Float64 data and all tests aim to minimise GC load by re-using data arrays passed to the charts.
-> 
-> FPS (Frames per second) is measured in the same manner for all libraries / test cases using `requestAnimationFrame` and `performance.now` and memory usage is reported using `window.performance.memory?.usedJSHeapSize`
+## Important Methodology Notes
+
+- FPS is measured visually and via requestAnimationFrame where applicable.
+- `performance.memory.usedJSHeapSize` for memory consumption is not available in all browsers.
+- Some libraries may report high rAF rates while rendering visually lags or other large delays on initialisation.
+- Browser crashes, hangs, or skipped tests are considered failures.
+- All test results are logged to IndexedDB and displayed on the homepage (refresh page to view)
+
+## What This Benchmark Does NOT Claim
+
+- It does not measure aesthetics, API ergonomics, or learning curve.
+- It does not represent typical dashboard workloads.
+- It does not imply open source or smaller libraries are "bad" — only that they are not designed for extreme scale.
+- Results should not be extrapolated to SVG or static charts (draw once / no interaction use-cases)
 
 ## What Test Cases are carried out?
 
@@ -365,6 +389,26 @@ Only SciChart.js could render larger data volumes, such as 2000x2000 or 4000x400
 | 2000 points, 1 series |          6.25         |           -          |          -         |       SKIPPED       |          SKIPPED         |        -        |
 | 4000 points, 1 series |          1.51         |           -          |          -         |       SKIPPED       |          SKIPPED         |        -        |
 | 8000 points, 1 series |        SKIPPED        |           -          |          -         |       SKIPPED       |          SKIPPED         |        -        |
+
+### Test Result Conclusions
+
+## Suitability by Use Case
+
+| Use Case                                     | Suitable Libraries                          | Notes                                       |
+|----------------------------------------------|---------------------------------------------|---------------------------------------------|
+| Small dashboards (<10k points)               | Chart.js, Highcharts, ECharts, Plotly, uPlot | All perform adequately                      |
+| Large datasets (≥100k - 1M points)           | SciChart                                    | Others degrade or fail                      |
+| Real-time streaming (ECG/FIFO)               | SciChart                                    | Sustained FPS under load                    |
+| Many series (1000+)                          | SciChart                                    | CPU-based libraries stall                   |
+| Heatmaps (1M+ cells)                         | SciChart                                    | Others skipped or unsupported               |
+| 3D charts                                    | SciChart                                    | Others crash or skip                        |
+| Combined dashboards with several chart types | SciChart                                    | Others have cumulative performance problems |
+
+## Final Conclusion
+
+JavaScript charting performance is fundamentally architecture-bound.
+CPU-based and general-purpose charting libraries cannot scale to large, real-time, or multi-surface workloads.
+Only GPU-accelerated, purpose-built charting engines remain usable at extreme scale.
 
 ## Modifying the Test Suite 
 
