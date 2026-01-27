@@ -143,65 +143,6 @@ Realtime 3D point clouds with randomised data, with increasing numbers of data-p
 
 Realtime 3D surface plots with a generated sinusoidal function with increasing number of cells
 
-## Running the Test Suite
-
-Open this folder in terminal and run the following commands:
-
--   `npm install`
--   `npm start`
-
-Then visit https://localhost:5173 in your web browser.
-
-![Homepage showing javascript chart tests](img/homepage.png)
-
-Start any test by clicking "RUN" in the table. Each test will open a new tab and run until completion. 
-
-It's recommended to only run one test at a time to ensure the CPU usage of each chart stress test does not interfere with another.
-
-Close the tab after test completion and refresh the homepage to see updated results. 
-
-### Running an Individual Stress Test 
-
-The stress test page looks like this. Several tests will be run in sequence with ever more demanding requirements (more datapoints, more series, more charts). The test will automatically stop when completed.
-
-![Test page showing javascript chart stress test](img/testpage.png)
-
-Each test lasts 10 seconds. Each test case may have 5-10 total test runs. Leave the test to run until completion when the results table is shown. 
-
-> **Note:** If any stress-test drops below 2 FPS, hangs, or is errored, subsequent tests will be skipped for that chart library / test case  
->
-> The max data-point limit for realtime tests is capped at 100 Million datapoints to fit inside Google Chrome memory limits.
-
-Some stats on the Stress Test page include:
-
-- **System information:** Current browser, GPU, WebGL renderer, Platform, CPU cores, Video RAM
-- **Immediate stats:**
-  - **Current FPS:** Showing the immediate "Frames per Second" (FPS) or refresh rate in Hertz
-  - **Frame count:** the number of frames that have rendered since the start of the test
-  - **Memory:** Immediate JavaScript memory (polled using `window.performance.memory?.usedJSHeapSize`). This may not be available on all browsers
-  - **Datapoints:** the total datapoint count currently displayed (will include all datapoints for multi-chart tests)
-
-### Viewing Test results
-
-Once a test case has completed, the results will be displayed in a table. This table can be copy-pasted to Excel or downloaded.
-
-![JavaScript Chart Stress Test Results page](img/resultspage.png)
-
-This results table includes:
-
-- The library name and version, e.g. "SciChart.js 5.0.0"
-- The test case type e.g. "Brownian Motion Scatter Series"
-- The number of datapoints e.g. "10,000"
-- The number of series on the chart
-- The number of charts (or blank for single-chart cases)
-- The time to library load in milliseconds
-- The time to first frame in milliseconds
-- The time to append data (data update rate)
-- The JS memory used as reported by `window.performance.memory?.usedJSHeapSize`
-- The Min, Max and Average (mean) FPS
-- The total frames rendered in the test
-- Any error conditions e.g. 'OK', 'HANGING', 'ERRORED'
-
 ## Test Results / Performance Comparison of JavaScript Charts
 
 with the following hardware, these test results are achieved:
@@ -410,6 +351,80 @@ JavaScript charting performance is fundamentally architecture-bound.
 CPU-based and general-purpose charting libraries cannot scale to large, real-time, or multi-surface workloads.
 Only GPU-accelerated, purpose-built charting engines remain usable at extreme scale.
 
+## Running the Test Suite
+
+Open this folder in terminal and run the following commands:
+
+-   `npm install`
+-   `npm start`
+
+Then visit https://localhost:5173 in your web browser.
+
+![Homepage showing javascript chart tests](img/homepage.png)
+
+Start any test by clicking "RUN" in the table. Each test will open a new tab and run until completion.
+
+It's recommended to only run one test at a time to ensure the CPU usage of each chart stress test does not interfere with another.
+
+Close the tab after test completion and refresh the homepage to see updated results.
+
+### Running an Individual Stress Test
+
+The stress test page looks like this. Several tests will be run in sequence with ever more demanding requirements (more datapoints, more series, more charts). The test will automatically stop when completed.
+
+![Test page showing javascript chart stress test](img/testpage.png)
+
+Each test lasts 10 seconds. Each test case may have 5-10 total test runs. Leave the test to run until completion when the results table is shown.
+
+> **Note:** If any stress-test drops below 2 FPS, hangs, or is errored, subsequent tests will be skipped for that chart library / test case
+>
+> The max data-point limit for realtime tests is capped at 100 Million datapoints to fit inside Google Chrome memory limits.
+
+Some stats on the Stress Test page include:
+
+- **System information:** Current browser, GPU, WebGL renderer, Platform, CPU cores, Video RAM
+- **Immediate stats:**
+  - **Current FPS:** Showing the immediate "Frames per Second" (FPS) or refresh rate in Hertz
+  - **Frame count:** the number of frames that have rendered since the start of the test
+  - **Memory:** Immediate JavaScript memory (polled using `window.performance.memory?.usedJSHeapSize`). This may not be available on all browsers
+  - **Datapoints:** the total datapoint count currently displayed (will include all datapoints for multi-chart tests)
+
+### Viewing Test results
+
+Once a test case has completed, the results will be persisted to IndexedDB and displayed in a table. This table can be copy-pasted to Excel or downloaded.
+
+![JavaScript Chart Stress Test Results page](img/resultspage.png)
+
+This results table includes:
+
+- The library name and version, e.g. "SciChart.js 5.0.0"
+- The test case type e.g. "Brownian Motion Scatter Series"
+- The number of datapoints e.g. "10,000"
+- The number of series on the chart
+- The number of charts (or blank for single-chart cases)
+- The time to library load in milliseconds
+- The time to first frame in milliseconds
+- The time to append data (data update rate)
+- The JS memory used as reported by `window.performance.memory?.usedJSHeapSize`
+- The Min, Max and Average (mean) FPS
+- The total frames rendered in the test
+- Any error conditions e.g. 'OK', 'HANGING', 'ERRORED'
+
+## Running tests automation via Playwright
+
+The automated test solution runs the app and opens each test case sequentially.
+At the end of each test case it screenshots the page with results in the table and saves them as PDF.  
+After all test cases were executed the final "Results Summary" test in suite takes a PDF snapshot of the final results table at main app page.
+
+**Prerequisites**
+Playwright setup: `npm playwright install`
+
+**How to run**
+
+- `npm run test` - default runs tests in headless mode
+- `npm run test:headed` - runs tests in headed mode
+- *Playwright UI Mode*: run either of scripts with `-- --ui`, e.g. `npm run test:headed -- --ui`
+
 ## Modifying the Test Suite 
 
 ### Adding a new Test Case
@@ -456,17 +471,3 @@ For any performance test, for example for eLinePerformanceTest, the order of cal
 5. `deleteChart` deletes the chart
 
 
-## Running tests automation via Playwright
-
-The automated test solution runs the app and opens each test case sequentially.
-At the end of each test case it screenshots the page with results in the table and saves them as PDF.  
-After all test cases were executed the final "Results Summary" test in suite takes a PDF snapshot of the final results table at main app page.  
-
-**Prerequisites**
-Playwright setup: `npm playwright install`
-
-**How to run**
-
-- `npm run test` - default runs tests in headless mode
-- `npm run test:headed` - runs tests in headed mode
-- *Playwright UI Mode*: run either of scripts with `-- --ui`, e.g. `npm run test:headed -- --ui`
