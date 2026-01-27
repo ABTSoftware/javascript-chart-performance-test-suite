@@ -177,7 +177,10 @@ async function saveTestResults(chartLibrary, testCase, results) {
         }
 
         const result = await perfTest.createChart();
-        if (result === false) break;
+        if (result === false) {
+            gTestFinished(i, 0, 0, [], true, 'SKIPPED');
+            break;
+        }
         const libLoadTime = gTestLibLoaded(i);
 
         perfTest.generateData();

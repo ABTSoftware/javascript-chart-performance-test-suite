@@ -38,6 +38,10 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
     let delta;
 
     const createChart = async () => {
+        if (seriesNum > 4000) {
+            console.warn("Plotly.js crashes the browser at this number of series so we'll skip further tests");
+            return false;
+        }
         CHART = document.getElementById('chart-root');
         Plotly.newPlot(CHART, [], {
             margin: { t: 0 },
