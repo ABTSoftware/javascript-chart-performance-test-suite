@@ -49,7 +49,8 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
         EAutoRange,
         FastLineRenderableSeries,
         convertRgbToHexColor,
-        SciChartDefaults
+        SciChartDefaults,
+        EResamplingMode
     } = SciChart;
 
     let DATA;
@@ -126,6 +127,7 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
                 dataSeries,
                 strokeThickness: 2,
                 stroke: strokeArr[i],
+                resamplingMode: EResamplingMode.None
             });
             sciChartSurface.renderableSeries.add(rendSeries);
         }
