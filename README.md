@@ -130,7 +130,11 @@ Then visit https://localhost:5173 in your web browser.
 
 ![Homepage showing javascript chart tests](img/homepage.png)
 
-Start any test by clicking "RUN" in the table. It's recommended to only run one test at a time to ensure the CPU usage of each chart stress test does not interfere with another.
+Start any test by clicking "RUN" in the table. Each test will open a new tab and run until completion. 
+
+It's recommended to only run one test at a time to ensure the CPU usage of each chart stress test does not interfere with another.
+
+Close the tab after test completion and refresh the homepage to see updated results. 
 
 ### Running an Individual Stress Test 
 
@@ -173,6 +177,194 @@ This results table includes:
 - The Min, Max and Average (mean) FPS
 - The total frames rendered in the test
 - Any error conditions e.g. 'OK', 'HANGING', 'ERRORED'
+
+## Test Results / Performance Comparison of JavaScript Charts
+
+with the following hardware, these test results are achieved:
+
+> **User Agent:** Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36  
+> **GPU Vendor:** Google Inc. (NVIDIA)  
+> **GPU Renderer:** ANGLE (NVIDIA, NVIDIA GeForce RTX 4090 Laptop GPU (0x00002717) Direct3D11 vs_5_0 ps_5_0, D3D11)  
+> **ANGLE:** Yes (ANGLE)  
+> **Platform:** Win32  
+> **CPU:** Intel Core i9-14900HX (2.2GHz)  
+> **Hardware Concurrency:** 32 cores  
+> **Video Memory:** 16 GB  
+
+### Thousands of Line Series, Thousands of points 
+
+In this test, Plotly.js runs but crashes the browser at high point counts, hence results were not recorded. Hanging means the chart hangs (more than 5 seconds to initialise). Skipped means subsequent tests are skipped due to either low FPS or error conditions.
+
+SciChart comes out at as the clear winner achieving >60 FPS for 1000 line series each with 1000 points, and able to render up to 8000 series with 8000 points per series.
+
+| Parameters               | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|--------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 100 points, 100 series   |         237.45        |         41.39        |        9.61        |          -          |           92.96          |      234.09     |
+| 200 points, 200 series   |         235.88        |         21.00        |        2.64        |          -          |           40.61          |      217.22     |
+| 500 points, 500 series   |         117.79        |        HANGING       |        0.43        |          -          |           9.12           |      55.72      |
+| 1000 points, 1000 series |         60.86         |        SKIPPED       |       SKIPPED      |          -          |           2.51           |      17.39      |
+| 2000 points, 2000 series |         27.54         |        SKIPPED       |       SKIPPED      |          -          |           0.62           |       3.95      |
+| 4000 points, 4000 series |          9.97         |        SKIPPED       |       SKIPPED      |          -          |          SKIPPED         |       1.16      |
+| 8000 points, 8000 series |          2.76         |        SKIPPED       |       SKIPPED      |          -          |          SKIPPED         |     SKIPPED     |
+
+### Randomised Scatter Series Performance Test Results
+
+In these tests, uPlot does not support unsorted scatter data, so data must be sorted first. Several charts either hit error states "Hanging" 
+
+In this test, SciChart comes out as the clear winner, able to render 1,000,000 points at 53.77 FPS (almost 60 FPS) and able to render a total of 10,000,000 points. Other charts hang or are skipped due to low FPS at lower data-point counts.
+
+| Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 1000 points, 1 series     |         238.08        |         71.09        |        83.80       |        150.39       |          226.96          |      232.47     |
+| 10000 points, 1 series    |         238.81        |         50.77        |        10.11       |        137.14       |           85.49          |      13.09      |
+| 50000 points, 1 series    |         239.04        |         19.45        |        2.03        |        85.39        |          HANGING         |     HANGING     |
+| 100000 points, 1 series   |         238.36        |         12.80        |        0.99        |        28.18        |          SKIPPED         |     SKIPPED     |
+| 200000 points, 1 series   |         200.26        |         10.03        |       SKIPPED      |        14.70        |          SKIPPED         |     SKIPPED     |
+| 500000 points, 1 series   |         88.64         |         6.76         |       SKIPPED      |         5.73        |          SKIPPED         |     SKIPPED     |
+| 1000000 points, 1 series  |         53.77         |         4.20         |       SKIPPED      |         2.65        |          SKIPPED         |     SKIPPED     |
+| 5000000 points, 1 series  |          9.90         |         1.18         |       SKIPPED      |         0.40        |          SKIPPED         |     SKIPPED     |
+| 10000000 points, 1 series |          3.95         |        SKIPPED       |       SKIPPED      |       SKIPPED       |          SKIPPED         |     SKIPPED     |
+
+### Randomlised XY Line Series (unsorted data) performance test results
+
+The randomised Xy Line series test case is similar to the scatter plot test, except that it renders polylines with unsorted Xy data. In this test uPlot which does not support unsorted data, must have data sorted before drawing. 
+
+SciChart comes out at the clear winner able to render 1,000,000 points at 54.64 FPS and a total of 10,000,000 points
+
+| Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 1000 points, 1 series     |         237.79        |         67.01        |        80.61       |        145.34       |          233.57          |      234.50     |
+| 10000 points, 1 series    |         238.23        |         52.89        |        9.87        |        127.88       |          104.84          |      237.70     |
+| 50000 points, 1 series    |         237.94        |         25.95        |        1.99        |        69.58        |           20.57          |      200.33     |
+| 100000 points, 1 series   |         236.58        |         16.71        |       SKIPPED      |        23.41        |           10.58          |      111.13     |
+| 200000 points, 1 series   |         190.20        |         12.15        |       SKIPPED      |        11.76        |           4.78           |      58.55      |
+| 500000 points, 1 series   |         86.14         |         7.36         |       SKIPPED      |         4.46        |           1.64           |      25.09      |
+| 1000000 points, 1 series  |         53.64         |         4.22         |       SKIPPED      |         2.07        |          SKIPPED         |      11.53      |
+| 5000000 points, 1 series  |          8.23         |         1.13         |       SKIPPED      |         0.37        |          SKIPPED         |       2.06      |
+| 10000000 points, 1 series |          2.61         |        SKIPPED       |       SKIPPED      |       SKIPPED       |          SKIPPED         |       1.03      |
+
+### Column series static data test results
+
+In Static Column charts, SciChart excels, able to draw 10,000,000 columns or bars at 240 FPS. The reason is the data here is not updating, this just measures static drawing of a large dataset. 
+
+HighCharts, Plotly.js, Apache e-Charts performed well up to 10,000 bars, 1,000 bars and 100,000 bars respectively. Chart.js, Plotly and eCharts had severeal skipped tests with none of them able to render 200,000 or more columns without either error or very slow FPS (<2 FPS)
+
+| Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 1000 points, 1 series     |         237.03        |         77.26        |       141.62       |        74.56        |          219.17          |      232.88     |
+| 10000 points, 1 series    |         238.34        |         73.58        |        21.25       |         9.88        |          144.56          |      159.47     |
+| 50000 points, 1 series    |         238.40        |         21.59        |        3.70        |         1.78        |          106.53          |      36.52      |
+| 100000 points, 1 series   |         237.88        |         12.32        |        1.72        |       SKIPPED       |           78.72          |      19.07      |
+| 200000 points, 1 series   |         238.01        |         9.39         |       SKIPPED      |       SKIPPED       |     ERROR_APPEND_DATA    |       7.64      |
+| 500000 points, 1 series   |         238.71        |         6.20         |       SKIPPED      |       SKIPPED       |          SKIPPED         |       2.89      |
+| 1000000 points, 1 series  |         237.44        |         3.35         |       SKIPPED      |       SKIPPED       |          SKIPPED         |       1.25      |
+| 5000000 points, 1 series  |         237.95        |         0.76         |       SKIPPED      |       SKIPPED       |          SKIPPED         |     SKIPPED     |
+| 10000000 points, 1 series |         237.06        |        SKIPPED       |       SKIPPED      |       SKIPPED       |          SKIPPED         |     SKIPPED     |
+
+### Candlestick chart static data test results
+
+In static candlestick charts, SciChart excels, able to draw 10,000,000 candles at ~240 FPS. Candlesticks are complex geometry including a box with an outline, and high/low wick. As a result several chart libraries fail to handle large volumes of candles at reasonable levels of performance.
+
+For example, plotly.js could not render 10,000 candles without the frame-rate dropping to 3.77FPS. e-Charts was able to render 100,000 candles at 30.77 FPS but quickly dropped thereafter. HighCharts also struggled with more than 1,000 candles, with a refresh rate of only 0.60 FPS at 10,000 candles.
+
+Another artefact noted in this test: Chart.js performance results show `requestAnimationFrame` able to tick at 56 FPS for 1,000 candles (but dropping to 1 FPS for 50,000) but in actual fact, the viewable refresh rate seemed to be much lower. We suspect the visual refresh rate may be decoupled from browser refreshes.
+
+| Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 1000 points, 1 series     |         235.86        |         18.76        |        56.69       |        33.71        |          234.25          |      233.94     |
+| 10000 points, 1 series    |         236.13        |         0.60         |        7.09        |         3.77        |          172.47          |      68.07      |
+| 50000 points, 1 series    |         237.00        |        SKIPPED       |        1.06        |         0.57        |           56.82          |      14.28      |
+| 100000 points, 1 series   |         237.21        |        SKIPPED       |       SKIPPED      |       SKIPPED       |           30.77          |       7.08      |
+| 200000 points, 1 series   |         235.62        |        SKIPPED       |       SKIPPED      |       SKIPPED       |           15.60          |       2.99      |
+| 500000 points, 1 series   |         237.24        |        SKIPPED       |       SKIPPED      |       SKIPPED       |           6.84           |       0.99      |
+| 1000000 points, 1 series  |         236.81        |        SKIPPED       |       SKIPPED      |       SKIPPED       |           3.87           |     SKIPPED     |
+| 5000000 points, 1 series  |         236.36        |        SKIPPED       |       SKIPPED      |       SKIPPED       |           0.68           |     SKIPPED     |
+| 10000000 points, 1 series |         233.93        |        SKIPPED       |       SKIPPED      |       SKIPPED       |          SKIPPED         |     SKIPPED     |
+
+### FIFO / ECG Streaming Line Chart Performance Test Results
+
+For a highly dynamic dataset, with 5 line series each with 'first in first out' streaming, the type of chart used in real-time telemetry monitoring or ECG monitoring, the libraries performed as follows.
+
+SciChart was the clear winner, able to render 5x series streaming with 1,000,000 points each at 83 FPS, and a total data update rate of over 10,000,000 data-points per second ingested. The most demanding scenario tested was 10,000,000 datapoints x 5 series which SciChart could handle at 19.16 FPS.
+
+Other chart libraries would struggle to perform, some struggling beyond 5x series of 10,000 datapoints and several hanging or skipped tests due to low FPS beyond 100,000 datapoints x 5 series.
+
+| Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 100 points, 5 series      |         238.10        |         71.22        |       119.52       |        116.89       |          233.26          |      231.11     |
+| 10000 points, 5 series    |         238.18        |         18.98        |        18.09       |        69.91        |           26.38          |      239.33     |
+| 100000 points, 5 series   |         238.07        |         3.87         |       HANGING      |         6.52        |           2.21           |      111.16     |
+| 1000000 points, 5 series  |         83.23         |         0.66         |       SKIPPED      |         0.56        |          HANGING         |      13.38      |
+| 5000000 points, 5 series  |         29.40         |        SKIPPED       |       SKIPPED      |       SKIPPED       |          SKIPPED         |       2.70      |
+| 10000000 points, 5 series |         19.16         |        SKIPPED       |       SKIPPED      |       SKIPPED       |          SKIPPED         |       1.41      |
+
+### Multi chart performance test results
+
+Single chart, single series tests reveal raw throughput of charts, but can chart libraries scale with number of charts on screen?
+
+In this test, SciChart excels being able to render 128 WebGL charts on screen, each with up to 1,000,000 points (starting at 10k points) at 15 FPS. 32 charts could be rendered at 45.84 FPS and 16 charts at 67.97 FPS.
+
+Most chart libraries strugged with this test, with notably Plotly.js unable to render more than 8 WebGL charts on screen at once before WebGL context loss issues. Chart.js struggled to render just 4 charts at 1.6 FPS, and eCharts, while able to render 64 charts, was only outputting 1.57 FPS with this number of graphs on screen.
+
+| Parameters                         | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|------------------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 10000 points, 1 series, 1 charts   |         237.17        |         11.11        |        4.43        |        35.68        |           20.72          |      151.91     |
+| 10000 points, 1 series, 2 charts   |         220.27        |         6.32         |        2.71        |        26.29        |           14.46          |      87.91      |
+| 10000 points, 1 series, 4 charts   |         154.43        |         3.30         |        1.60        |        19.58        |           9.79           |      46.12      |
+| 10000 points, 1 series, 8 charts   |         108.81        |         1.57         |       SKIPPED      |        13.75        |           6.41           |      23.74      |
+| 10000 points, 1 series, 16 charts  |         67.97         |        SKIPPED       |       SKIPPED      |         1.06        |           4.38           |      12.09      |
+| 10000 points, 1 series, 32 charts  |         45.84         |        SKIPPED       |       SKIPPED      |       SKIPPED       |           2.67           |       6.12      |
+| 10000 points, 1 series, 64 charts  |         26.05         |        SKIPPED       |       SKIPPED      |       SKIPPED       |           1.57           |       3.06      |
+| 10000 points, 1 series, 128 charts |         15.12         |        SKIPPED       |       SKIPPED      |       SKIPPED       |          SKIPPED         |       1.13      |
+
+### Uniform Heatmap Chart Performance test results
+
+In this test, a 2D uniform heatmap with a color map is updated with real-time data. SciChart excelled being able to render a 1000x1000 heatmap at 42.44 FPS. HighCharts, while supporting a heatmap struggled to render 200x200 heatmaps at 5.83 FPS vs. SciChart's 215.76 FPS. Plotly.js was able to render 200x200 heatmaps at 82.64 FPS but dropped to 5.16 FPS at 1000x1000 cells, vs. SciChart's 42.44 FPS. Apache eCharts was only able to render a 200x200 heatmap at 5.89 FPS. Only SciChart.js was able to render higher volume heatmaps such as 2000x2000, 4000x4000 or 8000x8000. 
+
+Note: Chart.js does not support a heatmap and uPlot, we couldn't get this to work.
+
+| Parameters             | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 100 points, 1 series   |         227.63        |         19.77        |     Unsupported    |        145.67       |           21.77          |   Unsupported   |
+| 200 points, 1 series   |         215.76        |         5.83         |          -         |        82.64        |           5.89           |        -        |
+| 500 points, 1 series   |         130.37        |         1.00         |          -         |        19.16        |           0.88           |        -        |
+| 1000 points, 1 series  |         42.44         |        SKIPPED       |          -         |         5.16        |          SKIPPED         |        -        |
+| 2000 points, 1 series  |          8.42         |        SKIPPED       |          -         |         1.26        |          SKIPPED         |        -        |
+| 4000 points, 1 series  |          2.04         |        SKIPPED       |          -         |       SKIPPED       |          SKIPPED         |        -        |
+| 8000 points, 1 series  |          0.34         |        SKIPPED       |          -         |       SKIPPED       |          SKIPPED         |        -        |
+| 16000 points, 1 series |        SKIPPED        |        SKIPPED       |          -         |       SKIPPED       |          SKIPPED         |        -        |
+
+### 3D Point Cloud Chart Performance Test Results
+
+3D Charts are also tested, only Plotly.js, Apache eCharts and SciChart.js support 3D point clouds, so HighCharts, Chart.js and uPlot were excluded from these tests.
+
+For rendering 3D point clouds, SciChart.js excels, able to render 100,000 point point-clouds at 135 FPS, or 1,000,000 point point-clouds at 17.25 FPS. Plotly.js could manage 1.44 FPS for 100k points and eCharts was able to manage 9.69 FPS at 100k points. Both libraries were under <2 FPS for 1,000,000 point point clouds and further test results were skipped.
+
+| Parameters               | SciChart.js (Avg FPS) |     Highcharts (Avg FPS)      |     Chart.js (Avg FPS)      | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) |      uPlot (Avg FPS)      |
+|--------------------------|:---------------------:|:-----------------------------:|:---------------------------:|:-------------------:|:------------------------:|:-------------------------:|
+| 100 points, 1 series     |         233.18        |          Unsupported          |         Unsupported         |        89.37        |          233.46          |        Unsupported        |
+| 1000 points, 1 series    |         235.04        |               -               |              -              |        52.25        |          233.57          |             -             |
+| 10000 points, 1 series   |         234.63        |               -               |              -              |        13.38        |           87.76          |             -             |
+| 100000 points, 1 series  |         135.12        |               -               |              -              |         1.44        |           9.69           |             -             |
+| 1000000 points, 1 series |         17.25         |               -               |              -              |       SKIPPED       |           1.30           |             -             |
+| 2000000 points, 1 series |          8.35         |               -               |              -              |       SKIPPED       |          SKIPPED         |             -             |
+| 4000000 points, 1 series |          4.15         |               -               |              -              |       SKIPPED       |          SKIPPED         |             -             |
+
+### 3D Surface Mesh Performance Test Results
+
+For 3D surface meshes, SciChart.js excels, being able to render a 500x500 mesh at 92.15 FPS and 1000x1000 mesh at 26.51 FPS. Plotly.js was able to render 500x500 at 5.47 FPS and 1000x1000 at 1.43 FPS. eCharts was able to render 500x500 at 2.47 FPS and 1000x1000 at 0.53 FPS. 
+
+Only SciChart.js could render larger data volumes, such as 2000x2000 or 4000x4000 3D surface meshes, with other chart libraries skipped due to low performance.
+
+| Parameters            | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) |
+|-----------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|
+| 100 points, 1 series  |         232.78        |           -          |          -         |        27.03        |           40.24          |        -        |
+| 200 points, 1 series  |         233.55        |           -          |          -         |        25.10        |           15.51          |        -        |
+| 500 points, 1 series  |         92.15         |           -          |          -         |         5.47        |           2.47           |        -        |
+| 1000 points, 1 series |         26.51         |           -          |          -         |         1.43        |           0.53           |        -        |
+| 2000 points, 1 series |          6.25         |           -          |          -         |       SKIPPED       |          SKIPPED         |        -        |
+| 4000 points, 1 series |          1.51         |           -          |          -         |       SKIPPED       |          SKIPPED         |        -        |
+| 8000 points, 1 series |        SKIPPED        |           -          |          -         |       SKIPPED       |          SKIPPED         |        -        |
 
 ## Modifying the Test Suite 
 
