@@ -58,6 +58,10 @@ function generateCharts () {
         name: 'uPlot',
         path: 'uPlot/uPlot.html',
     });
+    charts.push({
+        name: 'ChartGPU',
+        path: 'chartgpu/chartgpu.html',
+    });
     return charts;
 }
 
@@ -164,7 +168,8 @@ async function loadTestSupport(chartName) {
         'Highcharts': 'highcharts/highcharts_tests.js',
         'Plotly.js': 'plotly/plotly_tests.js',
         'Apache ECharts': 'echarts/echarts_tests.js',
-        'uPlot': 'uPlot/uPlot_tests.js'
+        'uPlot': 'uPlot/uPlot_tests.js',
+        'ChartGPU': 'chartgpu/chartgpu_tests.js'
     };
 
     const scriptPath = scriptPaths[chartName];

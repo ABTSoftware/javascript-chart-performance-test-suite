@@ -1,0 +1,30 @@
+<html lang="en-us">
+    <head>
+        <meta charset="utf-8" />
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+        <title>Stress Test ChartGPU</title>
+        <link rel="stylesheet" href="../style.css" />
+        <script defer src="../before.js"></script>
+        <script type="module">
+            // Import ChartGPU as ES module and expose globally
+            import { ChartGPU } from 'https://cdn.jsdelivr.net/npm/chartgpu@0.1.6/dist/index.min.js';
+            window.ChartGPU = ChartGPU;
+
+            // Signal that ChartGPU is loaded
+            window.chartGPULoaded = true;
+            window.dispatchEvent(new Event('chartgpu-loaded'));
+        </script>
+        <script defer src="chartgpu_tests.js"></script>
+        <script defer src="../scichart/lib/index.min.js" crossorigin="anonymous"></script>
+        <script defer src="../after.js"></script>
+    </head>
+    <body>
+        <h1>Stress Test ChartGPU</h1>
+        <div class="chart-container">
+            <div id="chart-root"></div>
+            <div id="system-info"></div>
+        </div>
+        <div id="result-table"></div>
+        <a id="download-link">Download Result</a>
+    </body>
+</html>
