@@ -548,10 +548,16 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
         };
         chart.setOption(options);
 
-        // Get y-axis range
-        const allYValues = data.map(d => d[1]);
-        yMin = Math.min(...allYValues);
-        yMax = Math.max(...allYValues);
+        // Get y-axis range efficiently without creating intermediate arrays
+        let min = Infinity;
+        let max = -Infinity;
+        for (let i = 0; i < data.length; i++) {
+            const yValue = data[i][1];
+            if (yValue < min) min = yValue;
+            if (yValue > max) max = yValue;
+        }
+        yMin = min;
+        yMax = max;
         const maxVal = Math.max(Math.abs(yMin), Math.abs(yMax));
         delta = maxVal / 300;
     };
@@ -673,9 +679,16 @@ function eCandlestickPerformanceTest(seriesNum, pointsNum) {
         };
         chart.setOption(options);
 
-        // Get max y value for delta calculation
-        const allYValues = data.flatMap(d => [d[1], d[2], d[3], d[4]]);
-        yMax = Math.max(...allYValues);
+        // Get max y value for delta calculation efficiently
+        let max = -Infinity;
+        for (let i = 0; i < data.length; i++) {
+            const candle = data[i];
+            // Check all candlestick values: open, close, low, high (indices 1-4)
+            for (let j = 1; j <= 4; j++) {
+                if (candle[j] > max) max = candle[j];
+            }
+        }
+        yMax = max;
         delta = yMax / 300;
     };
 
@@ -957,10 +970,16 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
         };
         chart.setOption(options);
 
-        // Get y-axis range
-        const allYValues = data.map(d => d[1]);
-        yMin = Math.min(...allYValues);
-        yMax = Math.max(...allYValues);
+        // Get y-axis range efficiently without creating intermediate arrays
+        let min = Infinity;
+        let max = -Infinity;
+        for (let i = 0; i < data.length; i++) {
+            const yValue = data[i][1];
+            if (yValue < min) min = yValue;
+            if (yValue > max) max = yValue;
+        }
+        yMin = min;
+        yMax = max;
         const maxVal = Math.max(Math.abs(yMin), Math.abs(yMax));
         delta = maxVal / 300;
     };
