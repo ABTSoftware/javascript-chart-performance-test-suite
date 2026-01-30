@@ -1066,13 +1066,22 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
             series: series
         });
 
-        // Get current Y range for delta calculation
-        const allValues = yValuesArrArr.flat();
+        // Get current Y range for delta calculation efficiently
+        let min = Infinity;
+        let max = -Infinity;
+        for (let i = 0; i < yValuesArrArr.length; i++) {
+            const yValuesArr = yValuesArrArr[i];
+            for (let j = 0; j < yValuesArr.length; j++) {
+                const value = yValuesArr[j];
+                if (value < min) min = value;
+                if (value > max) max = value;
+            }
+        }
         currentYRange = {
-            min: Math.min(...allValues),
-            max: Math.max(...allValues)
+            min: min,
+            max: max
         };
-        
+
         const maxVal = Math.max(Math.abs(currentYRange.min), Math.abs(currentYRange.max));
         delta = maxVal / 300;
     };
