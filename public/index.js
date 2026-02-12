@@ -62,6 +62,10 @@ function generateCharts () {
         name: 'ChartGPU',
         path: 'chartgpu/chartgpu.html',
     });
+    charts.push({
+        name: 'Lcjs',
+        path: 'lcjsv4/lcjs.html',
+    });
     return charts;
 }
 
@@ -169,7 +173,8 @@ async function loadTestSupport(chartName) {
         'Plotly.js': 'plotly/plotly_tests.js',
         'Apache ECharts': 'echarts/echarts_tests.js',
         'uPlot': 'uPlot/uPlot_tests.js',
-        'ChartGPU': 'chartgpu/chartgpu_tests.js'
+        'ChartGPU': 'chartgpu/chartgpu_tests.js',
+        'Lcjs': 'lcjsv4/lcjs_tests.js'
     };
 
     const scriptPath = scriptPaths[chartName];
