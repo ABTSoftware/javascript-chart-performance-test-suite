@@ -417,7 +417,7 @@ At the end of each test case it screenshots the page with results in the table a
 After all test cases were executed the final "Results Summary" test in suite takes a PDF snapshot of the final results table at main app page.
 
 **Prerequisites**
-Playwright setup: `npm playwright install`
+Playwright setup: `npx playwright install`
 
 **How to run**
 
