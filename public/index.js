@@ -20,6 +20,7 @@ const TESTS = generateTests();
 document.addEventListener('DOMContentLoaded', async function () {
     await initIndexedDB();
     await buildResultsSection();
+    addDownloadButton();
 });
 
 function generateCharts () {
@@ -568,16 +569,16 @@ function createResultsTable(testName, testResults) {
 
 function getFpsHeatmapColor(fps, minFps, maxFps) {
     if (fps === null || fps === undefined) return 'transparent';
-    
+
     // Use 60 FPS as the maximum for green colouring
     const targetMaxFps = 60;
-    
+
     // Normalise FPS to 0-1 range, capping at 60 FPS
     const normalised = Math.min(fps / targetMaxFps, 1);
-    
+
     // Create gradient: red (0 FPS) -> orange (30 FPS) -> green (60+ FPS)
     let red, green, blue;
-    
+
     if (normalised < 0.5) {
         // Red to Orange (0 to 30 FPS)
         const t = normalised * 2; // 0 to 1
@@ -591,7 +592,69 @@ function getFpsHeatmapColor(fps, minFps, maxFps) {
         green = Math.round(165 + (90 * t)); // 165 to 255
         blue = 0;
     }
-    
+
     // Add alpha for readability
     return `rgba(${red}, ${green}, ${blue}, 0.6)`;
+}
+
+function addDownloadButton() {
+    const buttonContainer = document.getElementById('downloadButtonContainer');
+    if (!buttonContainer) return;
+
+    // Create download button
+    const downloadButton = document.createElement('button');
+    downloadButton.textContent = 'Download Results JSON';
+    downloadButton.style.padding = '10px 20px';
+    downloadButton.style.fontSize = '14px';
+    downloadButton.style.backgroundColor = '#28a745';
+    downloadButton.style.color = 'white';
+    downloadButton.style.border = 'none';
+    downloadButton.style.borderRadius = '4px';
+    downloadButton.style.cursor = 'pointer';
+    downloadButton.style.fontWeight = 'bold';
+
+    downloadButton.addEventListener('mouseenter', () => {
+        downloadButton.style.backgroundColor = '#218838';
+    });
+
+    downloadButton.addEventListener('mouseleave', () => {
+        downloadButton.style.backgroundColor = '#28a745';
+    });
+
+    downloadButton.addEventListener('click', async () => {
+        try {
+            const allResults = await getAllTestResults();
+
+            if (allResults.length === 0) {
+                alert('No results available to download.');
+                return;
+            }
+
+            // Create JSON blob
+            const jsonData = JSON.stringify(allResults, null, 2);
+            const blob = new Blob([jsonData], { type: 'application/json' });
+
+            // Create download link
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            link.download = `chart-performance-results-${timestamp}.json`;
+
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+
+            // Cleanup
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to download results:', error);
+            alert('Failed to download results. Check console for details.');
+        }
+    });
+
+    buttonContainer.appendChild(downloadButton);
 }
