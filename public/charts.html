@@ -9,6 +9,12 @@
                 max-width: 900px;
                 margin: 0 auto;
             }
+            #filter-panel,
+            #filter-panel-libs {
+                max-width: 900px;
+                margin-left: auto;
+                margin-right: auto;
+            }
             .chart-section {
                 margin-bottom: 40px;
             }
@@ -39,18 +45,22 @@
         </style>
     </head>
     <body>
-        <nav style="margin-bottom: 10px">
-            <a href="index.html" style="font-size: 14px">Back to Test Suite</a>
-        </nav>
-        <h1>Performance Results - Charts</h1>
+        <div class="page-header">
+            <h1>Performance Results - Charts</h1>
+            <nav class="page-nav">
+                <a href="index.html">Test Suite</a>
+            </nav>
+        </div>
         <p>Each chart shows Average FPS per library across parameter configurations for a single test case.</p>
         <div id="filter-panel">
+            <div id="resultSetFilters"><strong>Result Sets:</strong></div>
             <div id="chartTypeToggle">
                 <strong>Chart Type:</strong>
                 <label><input type="radio" name="chartType" value="line" checked /> Line</label>
                 <label><input type="radio" name="chartType" value="column" /> Grouped Column</label>
             </div>
-            <div id="resultSetFilters"><strong>Result Sets:</strong></div>
+        </div>
+        <div id="filter-panel-libs">
             <div id="libraryFilters"><strong>Libraries:</strong></div>
         </div>
         <div id="loading">Loading results and initialising charts...</div>

@@ -1,10 +1,15 @@
 const TESTS = generateTests();
 
+// Global filter state
+let allResultsData = [];
+let allResultSetsData = [];
+let checkedResultSets = new Set();
+let checkedLibraries = new Set();
+
 document.addEventListener('DOMContentLoaded', async function () {
     await initIndexedDB();
     await autoImportStorageState();
-    await populateResultSetSelector();
-    await buildResultsSection();
+    await loadDataAndBuildUI();
     setupImportExport();
 });
 
@@ -80,45 +85,112 @@ async function loadTestSupport(chartName) {
     }
 }
 
-function checkTestSupport(chartName, testName) {
-    // For now, return true and let the async loading happen in buildTestsTable
-    // This is a synchronous function but we need async loading
-    return true;
-}
-
 // ──────────────────────────────────────────────
-// Result set selector
+// Data loading and filter panel
 // ──────────────────────────────────────────────
 
-async function populateResultSetSelector() {
-    const selector = document.getElementById('resultSetSelector');
-    if (!selector) return;
+async function loadDataAndBuildUI() {
+    allResultsData = await getAllTestResults();
+    allResultSetsData = await getAllResultSets();
 
-    const resultSets = await getAllResultSets();
-
-    selector.innerHTML = '';
-
-    // "All Result Sets" option
-    const allOption = document.createElement('option');
-    allOption.value = '__all__';
-    allOption.textContent = 'All Result Sets';
-    selector.appendChild(allOption);
-
-    // Individual result sets
-    resultSets.forEach((rs) => {
-        const opt = document.createElement('option');
-        opt.value = rs.id;
-        opt.textContent = rs.label;
-        selector.appendChild(opt);
+    const rsIdSet = new Set();
+    const libSet = new Set();
+    allResultsData.forEach((r) => {
+        rsIdSet.add(r.resultSetId || RESERVED_RESULT_SET_LOCAL);
+        libSet.add(getShortLibName(r.chartLibrary));
     });
 
-    // Re-render on change
-    selector.addEventListener('change', () => buildResultsSection());
+    // If no libraries found in data, pre-populate from CHARTS
+    if (libSet.size === 0) {
+        CHARTS.forEach((c) => libSet.add(c.name));
+    }
+
+    // Only check "Local" by default; imported sets start unchecked
+    checkedResultSets = new Set();
+    if (rsIdSet.has(RESERVED_RESULT_SET_LOCAL)) {
+        checkedResultSets.add(RESERVED_RESULT_SET_LOCAL);
+    } else if (rsIdSet.size > 0) {
+        // Fallback: check first available set
+        checkedResultSets.add(rsIdSet.values().next().value);
+    }
+    checkedLibraries = new Set(libSet);
+
+    buildFilterPanel(rsIdSet, libSet);
+    await buildResultsSection();
 }
 
-function getSelectedResultSetId() {
-    const selector = document.getElementById('resultSetSelector');
-    return selector ? selector.value : '__all__';
+function buildFilterPanel(rsIdSet, libSet) {
+    const rsContainer = document.getElementById('resultSetFilters');
+    const libContainer = document.getElementById('libraryFilters');
+    if (!rsContainer || !libContainer) return;
+
+    // Clear previous content
+    rsContainer.innerHTML = '<strong>Result Sets:</strong>';
+    libContainer.innerHTML = '<strong>Libraries:</strong>';
+
+    const rsLabelMap = {};
+    allResultSetsData.forEach((rs) => {
+        rsLabelMap[rs.id] = rs.label;
+    });
+
+    // Result set checkboxes
+    for (const rsId of rsIdSet) {
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = checkedResultSets.has(rsId);
+        cb.dataset.rsId = rsId;
+        cb.addEventListener('change', onFilterChange);
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(rsLabelMap[rsId] || rsId));
+
+        // Add delete button for non-local result sets
+        if (rsId !== RESERVED_RESULT_SET_LOCAL) {
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '\u00d7';
+            delBtn.className = 'delete-rs-btn';
+            delBtn.title = `Delete "${rsLabelMap[rsId] || rsId}"`;
+            delBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                handleDeleteResultSet(rsId, rsLabelMap[rsId] || rsId);
+            });
+            label.appendChild(delBtn);
+        }
+
+        rsContainer.appendChild(label);
+    }
+
+    // Library checkboxes — ordered by CHARTS definition
+    const orderedLibs = CHARTS.map((c) => c.name).filter((name) => libSet.has(name));
+    libSet.forEach((l) => {
+        if (!orderedLibs.includes(l)) orderedLibs.push(l);
+    });
+
+    orderedLibs.forEach((lib) => {
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.dataset.lib = lib;
+        cb.addEventListener('change', onFilterChange);
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(lib));
+        libContainer.appendChild(label);
+    });
+}
+
+function onFilterChange() {
+    checkedResultSets = new Set();
+    document.querySelectorAll('#resultSetFilters input[type="checkbox"]').forEach((cb) => {
+        if (cb.checked) checkedResultSets.add(cb.dataset.rsId);
+    });
+
+    checkedLibraries = new Set();
+    document.querySelectorAll('#libraryFilters input[type="checkbox"]').forEach((cb) => {
+        if (cb.checked) checkedLibraries.add(cb.dataset.lib);
+    });
+
+    buildResultsSection();
 }
 
 // ──────────────────────────────────────────────
@@ -128,32 +200,27 @@ function getSelectedResultSetId() {
 function setupImportExport() {
     const importBtn = document.getElementById('importBtn');
     const importFileInput = document.getElementById('importFileInput');
-    const exportBtn = document.getElementById('exportBtn');
-    const exportAllBtn = document.getElementById('exportAllBtn');
-    const deleteBtn = document.getElementById('deleteResultSetBtn');
+    const exportSelectedBtn = document.getElementById('exportSelectedBtn');
 
     if (importBtn && importFileInput) {
         importBtn.addEventListener('click', () => importFileInput.click());
         importFileInput.addEventListener('change', handleImport);
     }
 
-    if (exportBtn) {
-        exportBtn.addEventListener('click', () => {
-            const rsId = getSelectedResultSetId();
-            if (rsId === '__all__') {
+    if (exportSelectedBtn) {
+        exportSelectedBtn.addEventListener('click', () => {
+            if (checkedResultSets.size === 0) {
+                alert('No result sets selected to export.');
+                return;
+            }
+            // Export each checked result set (or all if all are checked)
+            const allRsIds = new Set(allResultSetsData.map((rs) => rs.id));
+            if (checkedResultSets.size === allRsIds.size) {
                 exportResults('__all__');
             } else {
-                exportResults(rsId);
+                checkedResultSets.forEach((rsId) => exportResults(rsId));
             }
         });
-    }
-
-    if (exportAllBtn) {
-        exportAllBtn.addEventListener('click', () => exportResults('__all__'));
-    }
-
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', handleDeleteResultSet);
     }
 }
 
@@ -210,11 +277,7 @@ async function handleImport(event) {
         alert(`Imported ${records.length} result(s) as "${label}".`);
 
         // Refresh UI
-        await populateResultSetSelector();
-        // Select the newly imported set
-        const selector = document.getElementById('resultSetSelector');
-        if (selector) selector.value = resultSetId;
-        await buildResultsSection();
+        await loadDataAndBuildUI();
     } catch (error) {
         console.error('Import failed:', error);
         alert('Import failed: ' + error.message);
@@ -223,19 +286,11 @@ async function handleImport(event) {
     event.target.value = '';
 }
 
-async function handleDeleteResultSet() {
-    const rsId = getSelectedResultSetId();
-    if (rsId === '__all__') {
-        alert('Please select a specific result set to delete.');
+async function handleDeleteResultSet(rsId, label) {
+    if (rsId === RESERVED_RESULT_SET_LOCAL) {
+        alert('Cannot delete the "Local" result set.');
         return;
     }
-    if (rsId === RESERVED_RESULT_SET_LATEST) {
-        alert('Cannot delete the "Latest Run" result set.');
-        return;
-    }
-
-    const selector = document.getElementById('resultSetSelector');
-    const label = selector?.options[selector.selectedIndex]?.textContent || rsId;
 
     if (!confirm(`Delete result set "${label}" and all its test results? This cannot be undone.`)) {
         return;
@@ -243,8 +298,7 @@ async function handleDeleteResultSet() {
 
     try {
         await deleteResultSet(rsId);
-        await populateResultSetSelector();
-        await buildResultsSection();
+        await loadDataAndBuildUI();
     } catch (error) {
         console.error('Delete failed:', error);
         alert('Delete failed: ' + error.message);
@@ -270,39 +324,37 @@ async function buildResultsSection() {
     resultsContainer.innerHTML = '<h2>Test Cases / Results</h2>';
 
     try {
-        const selectedRsId = getSelectedResultSetId();
-        let allResults;
-        if (selectedRsId === '__all__') {
-            allResults = await getAllTestResults();
-        } else {
-            allResults = await getResultsByResultSet(selectedRsId);
-        }
+        // Filter results by checked result sets and libraries
+        const filteredResults = allResultsData.filter((r) => {
+            const rsId = r.resultSetId || RESERVED_RESULT_SET_LOCAL;
+            const lib = getShortLibName(r.chartLibrary);
+            return checkedResultSets.has(rsId) && checkedLibraries.has(lib);
+        });
 
-        const showAllMode = selectedRsId === '__all__';
+        const showAllMode = checkedResultSets.size > 1;
 
         // Build result set label map for "All" mode column headers
         let resultSetMap = {};
         if (showAllMode) {
-            const resultSets = await getAllResultSets();
-            resultSets.forEach((rs) => {
+            allResultSetsData.forEach((rs) => {
                 resultSetMap[rs.id] = rs.label;
             });
         }
 
-        // Group results: in "All" mode, group by testCase+resultSet+library
-        // In single mode, group by testCase+library (same as before)
+        // Group results
         let resultsByTestCase;
         if (showAllMode) {
-            resultsByTestCase = groupResultsByTestCaseAndResultSet(allResults);
+            resultsByTestCase = groupResultsByTestCaseAndResultSet(filteredResults);
         } else {
-            resultsByTestCase = groupResultsByTestCase(allResults);
+            resultsByTestCase = groupResultsByTestCase(filteredResults);
         }
-
-        console.log('Results grouped by test case:', resultsByTestCase);
 
         // Load test support data for all charts first
         const supportPromises = CHARTS.map((chart) => loadTestSupport(chart.name));
         await Promise.all(supportPromises);
+
+        // Only show columns/buttons for checked libraries
+        const visibleCharts = CHARTS.filter((c) => checkedLibraries.has(c.name));
 
         // Create tables for each test case
         Object.keys(E_TEST_NAME).forEach((testKey) => {
@@ -322,25 +374,23 @@ async function buildResultsSection() {
             titleSpan.textContent = testName;
             heading.appendChild(titleSpan);
 
-            // Add RUN buttons for each chart library
+            // Add RUN buttons for visible chart libraries
             const runButtonsContainer = document.createElement('div');
             runButtonsContainer.style.display = 'flex';
             runButtonsContainer.style.gap = '10px';
             runButtonsContainer.style.flexWrap = 'wrap';
 
-            // Find the test group ID for this test name
+            // Find the test group index for this test name
             const testGroupId = Object.keys(E_TEST_NAME).find((key) => E_TEST_NAME[key] === testName);
             const testGroupIndex = testGroupId ? Object.keys(E_TEST_NAME).indexOf(testGroupId) + 1 : null;
 
-            CHARTS.forEach((chart) => {
-                // Check if this test is supported by this chart library
+            visibleCharts.forEach((chart) => {
                 const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
                 const isSupported = supportedTests.includes(testName);
 
                 if (isSupported && testGroupIndex) {
                     let href = chart.path || '';
 
-                    // Check for custom test paths
                     if (chart.custom && chart.custom.length > 0) {
                         const customTest = chart.custom.find((customItem) => customItem.test === testName);
                         if (customTest) {
@@ -396,27 +446,27 @@ async function buildResultsSection() {
     }
 }
 
-// Single result set mode: same as original
+// Single result set mode — one column per visible library
 function createResultsTable(testName, testResults) {
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
     table.style.width = '100%';
     table.style.marginBottom = '20px';
 
+    const visibleCharts = CHARTS.filter((c) => checkedLibraries.has(c.name));
+
     // Create header row
     const headerRow = table.insertRow();
     headerRow.style.backgroundColor = '#f0f0f0';
     headerRow.style.fontWeight = 'bold';
 
-    // Add parameter columns
     const paramsHeader = headerRow.insertCell();
     paramsHeader.textContent = 'Parameters';
     paramsHeader.style.border = '1px solid #ccc';
     paramsHeader.style.padding = '8px';
     paramsHeader.style.textAlign = 'left';
 
-    // Add chart library columns
-    CHARTS.forEach((chart) => {
+    visibleCharts.forEach((chart) => {
         const cell = headerRow.insertCell();
         cell.textContent = `${chart.name} (Avg FPS)`;
         cell.style.border = '1px solid #ccc';
@@ -625,7 +675,6 @@ function createResultsTable(testName, testResults) {
 
     // Convert to sorted array
     const sortedParams = Array.from(paramCombinations).sort((a, b) => {
-        // Extract point count for sorting
         const aPoints = parseInt(a.match(/(\d+) points/)?.[1] || '0');
         const bPoints = parseInt(b.match(/(\d+) points/)?.[1] || '0');
         return aPoints - bPoints;
@@ -650,25 +699,21 @@ function createResultsTable(testName, testResults) {
     sortedParams.forEach((paramStr) => {
         const row = table.insertRow();
 
-        // Parameters cell
         const paramCell = row.insertCell();
         paramCell.textContent = paramStr;
         paramCell.style.border = '1px solid #ccc';
         paramCell.style.padding = '8px';
         paramCell.style.fontWeight = 'bold';
 
-        // Chart library cells
-        CHARTS.forEach((chart) => {
+        visibleCharts.forEach((chart) => {
             const cell = row.insertCell();
             cell.style.border = '1px solid #ccc';
             cell.style.padding = '8px';
             cell.style.textAlign = 'center';
 
             // Find matching result for this chart and parameters
-            // Try both exact chart name and chart name with version
             let chartResults = testResults[chart.name];
             if (!chartResults) {
-                // Try to find by partial match (chart name might include version)
                 const chartKey = Object.keys(testResults).find((key) => key.startsWith(chart.name));
                 if (chartKey) {
                     chartResults = testResults[chartKey];
@@ -686,11 +731,10 @@ function createResultsTable(testName, testResults) {
                 });
 
                 if (matchingResult) {
-                    // Check if the result has an error condition
                     if (matchingResult.isErrored && matchingResult.errorReason) {
                         cell.textContent = matchingResult.errorReason;
-                        cell.style.backgroundColor = '#ffcccc'; // Red background for errors
-                        cell.style.color = '#cc0000'; // Dark red text
+                        cell.style.backgroundColor = '#ffcccc';
+                        cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
                     } else if (matchingResult.averageFPS) {
                         fps = matchingResult.averageFPS;
@@ -700,10 +744,8 @@ function createResultsTable(testName, testResults) {
 
             if (fps !== null) {
                 cell.textContent = fps.toFixed(2);
-                // Apply heatmap colouring
                 cell.style.backgroundColor = getFpsHeatmapColor(fps, minFps, maxFps);
             } else if (!cell.textContent) {
-                // Only set default if no error message was set
                 cell.textContent = '-';
                 cell.style.backgroundColor = '#f9f9f9';
                 cell.style.color = '#999';
@@ -714,20 +756,21 @@ function createResultsTable(testName, testResults) {
     return table;
 }
 
-// "All Result Sets" mode: columns are "{library} [{resultSetLabel}]"
+// Multiple result sets mode — columns are "{library} [{resultSetLabel}]"
 function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
-    // testResultsByRs = { [resultSetId]: { [chartLibrary]: results[] } }
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
     table.style.width = '100%';
     table.style.marginBottom = '20px';
 
     // Build column definitions: one per (resultSet, library) pair that has data
-    const columns = []; // { rsId, rsLabel, libName, shortName }
+    const columns = [];
     Object.entries(testResultsByRs).forEach(([rsId, libResults]) => {
         Object.keys(libResults).forEach((libName) => {
-            const rsLabel = resultSetMap[rsId] || rsId;
             const shortName = getShortLibName(libName);
+            // Filter by checked libraries
+            if (!checkedLibraries.has(shortName)) return;
+            const rsLabel = resultSetMap[rsId] || rsId;
             columns.push({ rsId, rsLabel, libName, shortName });
         });
     });
@@ -882,80 +925,17 @@ function getFpsHeatmapColor(fps, minFps, maxFps) {
 
     if (normalised < 0.5) {
         // Red to Orange (0 to 30 FPS)
-        const t = normalised * 2; // 0 to 1
+        const t = normalised * 2;
         red = 255;
-        green = Math.round(165 * t); // 0 to 165 (orange)
+        green = Math.round(165 * t);
         blue = 0;
     } else {
         // Orange to Green (30 to 60+ FPS)
-        const t = (normalised - 0.5) * 2; // 0 to 1
-        red = Math.round(255 * (1 - t)); // 255 to 0
-        green = Math.round(165 + 90 * t); // 165 to 255
+        const t = (normalised - 0.5) * 2;
+        red = Math.round(255 * (1 - t));
+        green = Math.round(165 + 90 * t);
         blue = 0;
     }
 
-    // Add alpha for readability
     return `rgba(${red}, ${green}, ${blue}, 0.6)`;
-}
-
-function addDownloadButton() {
-    const buttonContainer = document.getElementById('downloadButtonContainer');
-    if (!buttonContainer) return;
-
-    // Create download button
-    const downloadButton = document.createElement('button');
-    downloadButton.textContent = 'Download Results JSON';
-    downloadButton.style.padding = '10px 20px';
-    downloadButton.style.fontSize = '14px';
-    downloadButton.style.backgroundColor = '#28a745';
-    downloadButton.style.color = 'white';
-    downloadButton.style.border = 'none';
-    downloadButton.style.borderRadius = '4px';
-    downloadButton.style.cursor = 'pointer';
-    downloadButton.style.fontWeight = 'bold';
-
-    downloadButton.addEventListener('mouseenter', () => {
-        downloadButton.style.backgroundColor = '#218838';
-    });
-
-    downloadButton.addEventListener('mouseleave', () => {
-        downloadButton.style.backgroundColor = '#28a745';
-    });
-
-    downloadButton.addEventListener('click', async () => {
-        try {
-            const allResults = await getAllTestResults();
-
-            if (allResults.length === 0) {
-                alert('No results available to download.');
-                return;
-            }
-
-            // Create JSON blob
-            const jsonData = JSON.stringify(allResults, null, 2);
-            const blob = new Blob([jsonData], { type: 'application/json' });
-
-            // Create download link
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-
-            // Generate filename with timestamp
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            link.download = `chart-performance-results-${timestamp}.json`;
-
-            // Trigger download
-            document.body.appendChild(link);
-            link.click();
-
-            // Cleanup
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Failed to download results:', error);
-            alert('Failed to download results. Check console for details.');
-        }
-    });
-
-    buttonContainer.appendChild(downloadButton);
 }

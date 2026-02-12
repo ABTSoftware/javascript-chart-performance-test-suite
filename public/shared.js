@@ -65,11 +65,10 @@ function generateCharts() {
 
 // IndexedDB constants and helpers
 const DB_NAME = 'ChartPerformanceResults';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'testResults';
 const RESULT_SETS_STORE = 'resultSets';
-const RESERVED_RESULT_SET_LATEST = 'latest-run';
-const RESERVED_RESULT_SET_DEFAULT = 'default';
+const RESERVED_RESULT_SET_LOCAL = 'local';
 let db = null;
 
 async function initIndexedDB() {
@@ -87,71 +86,73 @@ async function initIndexedDB() {
             const tx = event.target.transaction;
             const oldVersion = event.oldVersion;
 
-            // --- v0/v1 → v2 migration ---
+            // --- v0/v1 → v2: create stores and indices ---
             if (oldVersion < 2) {
-                // Create resultSets store if it doesn't exist
                 if (!database.objectStoreNames.contains(RESULT_SETS_STORE)) {
                     database.createObjectStore(RESULT_SETS_STORE, { keyPath: 'id' });
                 }
 
-                let store;
                 if (!database.objectStoreNames.contains(STORE_NAME)) {
-                    // Fresh install — create testResults store with v2 schema
-                    store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
                     store.createIndex('chartLibrary', 'chartLibrary', { unique: false });
                     store.createIndex('testCase', 'testCase', { unique: false });
                     store.createIndex('resultSetId', 'resultSetId', { unique: false });
                 } else {
-                    // Existing v1 store — add resultSetId index and migrate records
-                    store = tx.objectStore(STORE_NAME);
+                    const store = tx.objectStore(STORE_NAME);
                     if (!store.indexNames.contains('resultSetId')) {
                         store.createIndex('resultSetId', 'resultSetId', { unique: false });
                     }
+                }
+            }
 
-                    // Migrate existing v1 records: prefix id with "default_" and add resultSetId
-                    const cursorReq = store.openCursor();
-                    const toDelete = [];
-                    const toAdd = [];
+            // --- v0/v1/v2 → v3: consolidate all reserved sets into "local" ---
+            if (oldVersion < 3) {
+                const store = tx.objectStore(STORE_NAME);
+                const rsStore = tx.objectStore(RESULT_SETS_STORE);
+                const LEGACY_IDS = ['default', 'playwright', 'latest-run'];
 
-                    cursorReq.onsuccess = (e) => {
-                        const cursor = e.target.result;
-                        if (cursor) {
-                            const record = cursor.value;
-                            if (!record.resultSetId) {
-                                toDelete.push(record.id);
-                                toAdd.push({
-                                    ...record,
-                                    id: `${RESERVED_RESULT_SET_DEFAULT}_${record.id}`,
-                                    resultSetId: RESERVED_RESULT_SET_DEFAULT,
-                                });
+                const cursorReq = store.openCursor();
+                const toDelete = [];
+                const toAdd = [];
+
+                cursorReq.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor) {
+                        const record = cursor.value;
+                        const rsId = record.resultSetId;
+                        if (!rsId || LEGACY_IDS.includes(rsId)) {
+                            let baseId = record.id;
+                            for (const prefix of LEGACY_IDS) {
+                                if (baseId.startsWith(prefix + '_')) {
+                                    baseId = baseId.substring(prefix.length + 1);
+                                    break;
+                                }
                             }
-                            cursor.continue();
-                        } else {
-                            // Cursor exhausted — perform deletes and inserts
-                            toDelete.forEach((id) => store.delete(id));
-                            toAdd.forEach((rec) => store.put(rec));
-
-                            // Seed resultSets store
-                            const rsStore = tx.objectStore(RESULT_SETS_STORE);
-                            if (toAdd.length > 0) {
-                                rsStore.put({
-                                    id: RESERVED_RESULT_SET_DEFAULT,
-                                    label: 'Default',
-                                    source: 'migration',
-                                    createdAt: Date.now(),
-                                    updatedAt: Date.now(),
-                                });
-                            }
-                            rsStore.put({
-                                id: RESERVED_RESULT_SET_LATEST,
-                                label: 'Latest Run',
-                                source: 'system',
-                                createdAt: Date.now(),
-                                updatedAt: Date.now(),
+                            toDelete.push(record.id);
+                            toAdd.push({
+                                ...record,
+                                id: `${RESERVED_RESULT_SET_LOCAL}_${baseId}`,
+                                resultSetId: RESERVED_RESULT_SET_LOCAL,
                             });
                         }
-                    };
-                }
+                        cursor.continue();
+                    } else {
+                        toDelete.forEach((id) => store.delete(id));
+                        toAdd.forEach((rec) => store.put(rec));
+
+                        // Remove legacy result set entries
+                        LEGACY_IDS.forEach((id) => rsStore.delete(id));
+
+                        // Ensure "Local" result set exists
+                        rsStore.put({
+                            id: RESERVED_RESULT_SET_LOCAL,
+                            label: 'Local',
+                            source: 'system',
+                            createdAt: Date.now(),
+                            updatedAt: Date.now(),
+                        });
+                    }
+                };
             }
         };
     });
@@ -238,9 +239,9 @@ async function saveResultSet(metadata) {
 async function deleteResultSet(resultSetId) {
     if (!db) throw new Error('Database not initialized');
 
-    // Prevent deleting reserved result sets
-    if (resultSetId === RESERVED_RESULT_SET_LATEST) {
-        throw new Error('Cannot delete the "Latest Run" result set');
+    // Prevent deleting the local result set
+    if (resultSetId === RESERVED_RESULT_SET_LOCAL) {
+        throw new Error('Cannot delete the "Local" result set');
     }
 
     const tx = db.transaction([STORE_NAME, RESULT_SETS_STORE], 'readwrite');
@@ -295,7 +296,7 @@ function groupResultsByTestCaseAndResultSet(allResults) {
     const grouped = {};
     allResults.forEach((result) => {
         const tc = result.testCase;
-        const rs = result.resultSetId || RESERVED_RESULT_SET_DEFAULT;
+        const rs = result.resultSetId || RESERVED_RESULT_SET_LOCAL;
         const lib = result.chartLibrary;
         if (!grouped[tc]) grouped[tc] = {};
         if (!grouped[tc][rs]) grouped[tc][rs] = {};
@@ -431,8 +432,6 @@ async function importResults(records, resultSetId, resultSetLabel, source) {
     });
 }
 
-const RESERVED_RESULT_SET_PLAYWRIGHT = 'playwright';
-
 async function autoImportStorageState() {
     try {
         const response = await fetch('/tests/storage-state.json');
@@ -444,32 +443,48 @@ async function autoImportStorageState() {
 
         // Simple content hash to skip re-import when nothing changed
         const hash = simpleHash(text);
-        const existingRs = await getResultSetById(RESERVED_RESULT_SET_PLAYWRIGHT);
-        if (existingRs && existingRs.contentHash === hash) {
+        const existingHash = localStorage.getItem('storageStateHash');
+        if (existingHash === hash) {
             console.log('storage-state.json unchanged, skipping auto-import');
             return;
         }
 
-        // Delete old playwright results, then re-import fresh
-        try {
-            await deleteResultSet(RESERVED_RESULT_SET_PLAYWRIGHT);
-        } catch {
-            // Might not exist yet — that's fine
+        // Ensure "Local" result set metadata exists
+        const existingRs = await getResultSetById(RESERVED_RESULT_SET_LOCAL);
+        if (!existingRs) {
+            await saveResultSet({
+                id: RESERVED_RESULT_SET_LOCAL,
+                label: 'Local',
+                source: 'system',
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            });
         }
 
-        await importResults(records, RESERVED_RESULT_SET_PLAYWRIGHT, 'Playwright', 'auto-import');
+        // Upsert records into "local" (preserves any manual test results)
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
 
-        // Store content hash for next comparison
-        await saveResultSet({
-            id: RESERVED_RESULT_SET_PLAYWRIGHT,
-            label: 'Playwright',
-            source: 'auto-import',
-            contentHash: hash,
-            createdAt: existingRs?.createdAt || Date.now(),
-            updatedAt: Date.now(),
+        for (const record of records) {
+            let baseId = record.id;
+            // Strip any existing resultSetId prefix
+            if (record.resultSetId && baseId.startsWith(record.resultSetId + '_')) {
+                baseId = baseId.substring(record.resultSetId.length + 1);
+            }
+            store.put({
+                ...record,
+                id: `${RESERVED_RESULT_SET_LOCAL}_${baseId}`,
+                resultSetId: RESERVED_RESULT_SET_LOCAL,
+            });
+        }
+
+        await new Promise((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
         });
 
-        console.log(`Auto-imported ${records.length} result(s) from storage-state.json`);
+        localStorage.setItem('storageStateHash', hash);
+        console.log(`Auto-imported ${records.length} result(s) from storage-state.json into Local`);
     } catch (error) {
         console.warn('Auto-import of storage-state.json skipped:', error.message);
     }

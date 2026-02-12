@@ -6,21 +6,23 @@
         <link rel="stylesheet" href="style.css" />
     </head>
     <body>
-        <nav style="margin-bottom: 10px">
-            <a href="charts.html" style="font-size: 14px">View Results as Charts</a>
-        </nav>
-        <div id="toolbar">
-            <label
-                >Result Set:
-                <select id="resultSetSelector"></select>
-            </label>
-            <button id="importBtn">Import Results...</button>
-            <input type="file" id="importFileInput" accept=".json" style="display: none" />
-            <button id="exportBtn">Export Selected</button>
-            <button id="exportAllBtn">Export All</button>
-            <button id="deleteResultSetBtn" class="danger">Delete Result Set</button>
+        <div class="page-header">
+            <h1>Performance Comparison Test Suite</h1>
+            <nav class="page-nav">
+                <a href="charts.html">Charts View</a>
+            </nav>
         </div>
-        <h1>Performance Comparison Test Suite</h1>
+        <div id="filter-panel">
+            <div id="resultSetFilters"><strong>Result Sets:</strong></div>
+            <div id="toolbar">
+                <button id="importBtn">Import Results...</button>
+                <input type="file" id="importFileInput" accept=".json" style="display: none" />
+                <button id="exportSelectedBtn">Export Selected</button>
+            </div>
+        </div>
+        <div id="filter-panel-libs">
+            <div id="libraryFilters"><strong>Libraries:</strong></div>
+        </div>
         <p>
             Click RUN on any chart library / test case to run the test. After that <strong>close the tab</strong> before
             starting any new tests

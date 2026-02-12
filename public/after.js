@@ -1,11 +1,10 @@
 // IndexedDB setup for persistence
 let db = null;
 const DB_NAME = 'ChartPerformanceResults';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'testResults';
 const RESULT_SETS_STORE = 'resultSets';
-const RESERVED_RESULT_SET_LATEST = 'latest-run';
-const RESERVED_RESULT_SET_DEFAULT = 'default';
+const RESERVED_RESULT_SET_LOCAL = 'local';
 
 async function initIndexedDB() {
     return new Promise((resolve, reject) => {
@@ -22,71 +21,71 @@ async function initIndexedDB() {
             const tx = event.target.transaction;
             const oldVersion = event.oldVersion;
 
-            // --- v0/v1 → v2 migration ---
+            // --- v0/v1 → v2: create stores and indices ---
             if (oldVersion < 2) {
-                // Create resultSets store if it doesn't exist
                 if (!database.objectStoreNames.contains(RESULT_SETS_STORE)) {
                     database.createObjectStore(RESULT_SETS_STORE, { keyPath: 'id' });
                 }
 
-                let store;
                 if (!database.objectStoreNames.contains(STORE_NAME)) {
-                    // Fresh install — create testResults store with v2 schema
-                    store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
                     store.createIndex('chartLibrary', 'chartLibrary', { unique: false });
                     store.createIndex('testCase', 'testCase', { unique: false });
                     store.createIndex('resultSetId', 'resultSetId', { unique: false });
                 } else {
-                    // Existing v1 store — add resultSetId index and migrate records
-                    store = tx.objectStore(STORE_NAME);
+                    const store = tx.objectStore(STORE_NAME);
                     if (!store.indexNames.contains('resultSetId')) {
                         store.createIndex('resultSetId', 'resultSetId', { unique: false });
                     }
+                }
+            }
 
-                    // Migrate existing v1 records: prefix id with "default_" and add resultSetId
-                    const cursorReq = store.openCursor();
-                    const toDelete = [];
-                    const toAdd = [];
+            // --- v0/v1/v2 → v3: consolidate all reserved sets into "local" ---
+            if (oldVersion < 3) {
+                const store = tx.objectStore(STORE_NAME);
+                const rsStore = tx.objectStore(RESULT_SETS_STORE);
+                const LEGACY_IDS = ['default', 'playwright', 'latest-run'];
 
-                    cursorReq.onsuccess = (e) => {
-                        const cursor = e.target.result;
-                        if (cursor) {
-                            const record = cursor.value;
-                            if (!record.resultSetId) {
-                                toDelete.push(record.id);
-                                toAdd.push({
-                                    ...record,
-                                    id: `${RESERVED_RESULT_SET_DEFAULT}_${record.id}`,
-                                    resultSetId: RESERVED_RESULT_SET_DEFAULT,
-                                });
+                const cursorReq = store.openCursor();
+                const toDelete = [];
+                const toAdd = [];
+
+                cursorReq.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor) {
+                        const record = cursor.value;
+                        const rsId = record.resultSetId;
+                        if (!rsId || LEGACY_IDS.includes(rsId)) {
+                            let baseId = record.id;
+                            for (const prefix of LEGACY_IDS) {
+                                if (baseId.startsWith(prefix + '_')) {
+                                    baseId = baseId.substring(prefix.length + 1);
+                                    break;
+                                }
                             }
-                            cursor.continue();
-                        } else {
-                            // Cursor exhausted — perform deletes and inserts
-                            toDelete.forEach((id) => store.delete(id));
-                            toAdd.forEach((rec) => store.put(rec));
-
-                            // Seed resultSets store
-                            const rsStore = tx.objectStore(RESULT_SETS_STORE);
-                            if (toAdd.length > 0) {
-                                rsStore.put({
-                                    id: RESERVED_RESULT_SET_DEFAULT,
-                                    label: 'Default',
-                                    source: 'migration',
-                                    createdAt: Date.now(),
-                                    updatedAt: Date.now(),
-                                });
-                            }
-                            rsStore.put({
-                                id: RESERVED_RESULT_SET_LATEST,
-                                label: 'Latest Run',
-                                source: 'system',
-                                createdAt: Date.now(),
-                                updatedAt: Date.now(),
+                            toDelete.push(record.id);
+                            toAdd.push({
+                                ...record,
+                                id: `${RESERVED_RESULT_SET_LOCAL}_${baseId}`,
+                                resultSetId: RESERVED_RESULT_SET_LOCAL,
                             });
                         }
-                    };
-                }
+                        cursor.continue();
+                    } else {
+                        toDelete.forEach((id) => store.delete(id));
+                        toAdd.forEach((rec) => store.put(rec));
+
+                        LEGACY_IDS.forEach((id) => rsStore.delete(id));
+
+                        rsStore.put({
+                            id: RESERVED_RESULT_SET_LOCAL,
+                            label: 'Local',
+                            source: 'system',
+                            createdAt: Date.now(),
+                            updatedAt: Date.now(),
+                        });
+                    }
+                };
             }
         };
     });
@@ -112,11 +111,11 @@ async function saveTestResults(chartLibrary, testCase, results) {
         console.log('Object store retrieved successfully');
 
         const data = {
-            id: `${RESERVED_RESULT_SET_LATEST}_${chartLibrary}_${testCase}`,
+            id: `${RESERVED_RESULT_SET_LOCAL}_${chartLibrary}_${testCase}`,
             chartLibrary,
             testCase,
             results,
-            resultSetId: RESERVED_RESULT_SET_LATEST,
+            resultSetId: RESERVED_RESULT_SET_LOCAL,
             timestamp: Date.now(),
         };
 

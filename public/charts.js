@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const rsIdSet = new Set();
     const libSet = new Set();
     allResultsData.forEach((r) => {
-        rsIdSet.add(r.resultSetId || RESERVED_RESULT_SET_DEFAULT);
+        rsIdSet.add(r.resultSetId || RESERVED_RESULT_SET_LOCAL);
         libSet.add(getShortLibName(r.chartLibrary));
     });
     resultSetIds = Array.from(rsIdSet);
@@ -443,6 +443,7 @@ async function createAllSurfaces(container) {
             new SC.CursorModifier({
                 showTooltip: true,
                 snapToDataPoint: true,
+                hitTestRadius: 10
             })
         );
 
