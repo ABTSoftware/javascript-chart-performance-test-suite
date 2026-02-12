@@ -198,6 +198,8 @@ let resultSetIds = [];
 // Current filter state
 let checkedResultSets = new Set();
 let checkedLibraries = new Set();
+// Chart type: 'line' or 'column'
+let chartType = 'line';
 
 // SciChart imports (set in DOMContentLoaded)
 let SC = {};
@@ -214,8 +216,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         EAutoRange: SciChart.EAutoRange,
         LegendModifier: SciChart.LegendModifier,
         RolloverModifier: SciChart.RolloverModifier,
+        CursorModifier: SciChart.CursorModifier,
         ELegendPlacement: SciChart.ELegendPlacement,
         NumberRange: SciChart.NumberRange,
+        StackedColumnRenderableSeries: SciChart.StackedColumnRenderableSeries,
+        StackedColumnCollection: SciChart.StackedColumnCollection,
     };
 
     SC.SciChartSurface.configure({
@@ -274,6 +279,11 @@ function buildFilterPanel(rsLabelMap, libSet) {
     const rsContainer = document.getElementById('resultSetFilters');
     const libContainer = document.getElementById('libraryFilters');
 
+    // Chart type radio buttons
+    document.querySelectorAll('input[name="chartType"]').forEach((radio) => {
+        radio.addEventListener('change', onChartTypeChange);
+    });
+
     // Result set checkboxes
     resultSetIds.forEach((rsId) => {
         const label = document.createElement('label');
@@ -321,6 +331,20 @@ function onFilterChange() {
     });
 
     updateAllChartSeries();
+}
+
+function onChartTypeChange(e) {
+    chartType = e.target.value;
+    // Full rebuild needed — column mode uses StackedColumnCollection
+    clearAllSeries();
+    updateAllChartSeries();
+}
+
+function clearAllSeries() {
+    for (const [, info] of surfaceMap) {
+        const { surface } = info;
+        surface.renderableSeries.clear();
+    }
 }
 
 // ──────────────────────────────────────────────
@@ -407,16 +431,16 @@ async function createAllSurfaces(container) {
         });
         sciChartSurface.yAxes.add(yAxis);
 
-        sciChartSurface.chartModifiers.add(
-            new SC.LegendModifier({
-                placement: SC.ELegendPlacement.TopRight,
-                showCheckboxes: true,
-                showSeriesMarkers: true,
-            })
-        );
+        // sciChartSurface.chartModifiers.add(
+        //     new SC.LegendModifier({
+        //         placement: SC.ELegendPlacement.TopRight,
+        //         showCheckboxes: true,
+        //         showSeriesMarkers: true,
+        //     })
+        // );
 
         sciChartSurface.chartModifiers.add(
-            new SC.RolloverModifier({
+            new SC.CursorModifier({
                 showTooltip: true,
                 snapToDataPoint: true,
             })
@@ -435,127 +459,184 @@ async function createAllSurfaces(container) {
 // Reactive series update
 // ──────────────────────────────────────────────
 
-function updateAllChartSeries() {
-    // Build result set label lookup
+function buildSeriesDataMap(testName, grouped, categoryKeys) {
     const rsLabelMap = {};
     allResultSetsData.forEach((rs) => {
         rsLabelMap[rs.id] = rs.label;
     });
-
     const multipleResultSets = checkedResultSets.size > 1 || resultSetIds.length > 1;
 
-    // Group data
+    const seriesDataMap = new Map(); // seriesId -> { xValues, yValues, color, dashArray, name }
+    const testData = grouped[testName] || {};
+
+    const rsIndexMap = {};
+    resultSetIds.forEach((rsId, idx) => {
+        rsIndexMap[rsId] = idx;
+    });
+
+    Object.entries(testData).forEach(([rsId, libResults]) => {
+        if (!checkedResultSets.has(rsId)) return;
+        const rsIndex = rsIndexMap[rsId] || 0;
+        const dashArray = DASH_PATTERNS[rsIndex % DASH_PATTERNS.length];
+
+        Object.entries(libResults).forEach(([libName, results]) => {
+            const shortName = getShortLibName(libName);
+            if (!checkedLibraries.has(shortName)) return;
+            if (!Array.isArray(results)) return;
+
+            const seriesId = `${rsId}_${shortName}`;
+            const color = getColorForLibrary(libName);
+            const xValues = [];
+            const yValues = [];
+
+            results.forEach((r) => {
+                if (!r.config || !r.averageFPS || r.isErrored) return;
+                const key = configKey(r.config);
+                const idx = categoryKeys.indexOf(key);
+                if (idx >= 0) {
+                    xValues.push(idx);
+                    yValues.push(r.averageFPS);
+                }
+            });
+
+            if (xValues.length === 0) return;
+
+            const rsLabel = rsLabelMap[rsId] || rsId;
+            const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
+
+            seriesDataMap.set(seriesId, { xValues, yValues, color, dashArray, name });
+        });
+    });
+
+    return seriesDataMap;
+}
+
+function updateAllChartSeries() {
     const grouped = groupResultsByTestCaseAndResultSet(allResultsData);
 
     for (const [testKey, info] of surfaceMap) {
         const testName = E_TEST_NAME[testKey];
         const { surface, wasmContext, categoryKeys } = info;
+        const seriesDataMap = buildSeriesDataMap(testName, grouped, categoryKeys);
 
-        // Determine which series should exist
-        const desiredSeriesIds = new Set();
-        const seriesDataMap = new Map(); // seriesId -> { xValues, yValues, color, dashArray, name }
-
-        const testData = grouped[testName] || {};
-
-        // Assign a stable index to each result set for dash patterns
-        const rsIndexMap = {};
-        resultSetIds.forEach((rsId, idx) => {
-            rsIndexMap[rsId] = idx;
-        });
-
-        Object.entries(testData).forEach(([rsId, libResults]) => {
-            if (!checkedResultSets.has(rsId)) return;
-            const rsIndex = rsIndexMap[rsId] || 0;
-            const dashArray = DASH_PATTERNS[rsIndex % DASH_PATTERNS.length];
-
-            Object.entries(libResults).forEach(([libName, results]) => {
-                const shortName = getShortLibName(libName);
-                if (!checkedLibraries.has(shortName)) return;
-                if (!Array.isArray(results)) return;
-
-                const seriesId = `${rsId}_${shortName}`;
-                const color = getColorForLibrary(libName);
-                const xValues = [];
-                const yValues = [];
-
-                results.forEach((r) => {
-                    if (!r.config || !r.averageFPS || r.isErrored) return;
-                    const key = configKey(r.config);
-                    const idx = categoryKeys.indexOf(key);
-                    if (idx >= 0) {
-                        xValues.push(idx);
-                        yValues.push(r.averageFPS);
-                    }
-                });
-
-                if (xValues.length === 0) return;
-
-                desiredSeriesIds.add(seriesId);
-                const rsLabel = rsLabelMap[rsId] || rsId;
-                const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
-
-                seriesDataMap.set(seriesId, { xValues, yValues, color, dashArray, name });
-            });
-        });
-
-        // Remove series that should no longer exist
-        const toRemove = [];
-        for (let i = 0; i < surface.renderableSeries.size(); i++) {
-            const rs = surface.renderableSeries.get(i);
-            if (rs.id && !desiredSeriesIds.has(rs.id)) {
-                toRemove.push(rs);
-            }
-        }
-        toRemove.forEach((rs) => {
-            surface.renderableSeries.remove(rs);
-            rs.delete();
-        });
-
-        // Add or update series
-        for (const [seriesId, data] of seriesDataMap) {
-            let existing = null;
-            for (let i = 0; i < surface.renderableSeries.size(); i++) {
-                const rs = surface.renderableSeries.get(i);
-                if (rs.id === seriesId) {
-                    existing = rs;
-                    break;
-                }
-            }
-
-            if (existing) {
-                // Update data series in place
-                const ds = existing.dataSeries;
-                ds.clear();
-                ds.appendRange(data.xValues, data.yValues);
-                // Update name if it changed
-                if (ds.dataSeriesName !== data.name) {
-                    ds.dataSeriesName = data.name;
-                }
-            } else {
-                // Create new series
-                const dataSeries = new SC.XyDataSeries(wasmContext, {
-                    xValues: data.xValues,
-                    yValues: data.yValues,
-                    dataSeriesName: data.name,
-                });
-
-                const lineSeries = new SC.FastLineRenderableSeries(wasmContext, {
-                    id: seriesId,
-                    dataSeries,
-                    stroke: data.color,
-                    strokeThickness: 2,
-                    strokeDashArray: data.dashArray,
-                    pointMarker: new SC.EllipsePointMarker(wasmContext, {
-                        width: 8,
-                        height: 8,
-                        fill: data.color,
-                        stroke: data.color,
-                        strokeThickness: 1,
-                    }),
-                });
-
-                surface.renderableSeries.add(lineSeries);
-            }
+        if (chartType === 'column') {
+            updateColumnSeries(surface, wasmContext, seriesDataMap);
+        } else {
+            updateLineSeries(surface, wasmContext, seriesDataMap);
         }
     }
+}
+
+function updateLineSeries(surface, wasmContext, seriesDataMap) {
+    const desiredSeriesIds = new Set(seriesDataMap.keys());
+
+    // Remove series that should no longer exist
+    const toRemove = [];
+    for (let i = 0; i < surface.renderableSeries.size(); i++) {
+        const rs = surface.renderableSeries.get(i);
+        if (rs.id && !desiredSeriesIds.has(rs.id)) {
+            toRemove.push(rs);
+        }
+    }
+    toRemove.forEach((rs) => {
+        surface.renderableSeries.remove(rs);
+        rs.delete();
+    });
+
+    // Add or update series
+    for (const [seriesId, data] of seriesDataMap) {
+        let existing = null;
+        for (let i = 0; i < surface.renderableSeries.size(); i++) {
+            const rs = surface.renderableSeries.get(i);
+            if (rs.id === seriesId) {
+                existing = rs;
+                break;
+            }
+        }
+
+        if (existing) {
+            const ds = existing.dataSeries;
+            ds.clear();
+            ds.appendRange(data.xValues, data.yValues);
+            if (ds.dataSeriesName !== data.name) {
+                ds.dataSeriesName = data.name;
+            }
+        } else {
+            const dataSeries = new SC.XyDataSeries(wasmContext, {
+                xValues: data.xValues,
+                yValues: data.yValues,
+                dataSeriesName: data.name,
+            });
+
+            const lineSeries = new SC.FastLineRenderableSeries(wasmContext, {
+                id: seriesId,
+                dataSeries,
+                stroke: data.color,
+                strokeThickness: 2,
+                strokeDashArray: data.dashArray,
+                pointMarker: new SC.EllipsePointMarker(wasmContext, {
+                    width: 8,
+                    height: 8,
+                    fill: data.color,
+                    stroke: data.color,
+                    strokeThickness: 1,
+                }),
+            });
+
+            surface.renderableSeries.add(lineSeries);
+        }
+    }
+}
+
+function updateColumnSeries(surface, wasmContext, seriesDataMap) {
+    // Column mode: clear everything, rebuild with StackedColumnCollection
+    // Each series gets a unique stackedGroupId for side-by-side (grouped) display
+    surface.renderableSeries.clear();
+
+    if (seriesDataMap.size === 0) return;
+
+    // StackedColumnCollection requires all series to have identical X values.
+    // Compute the union of all X values, then pad each series with NaN where missing.
+    const allXSet = new Set();
+    for (const [, data] of seriesDataMap) {
+        data.xValues.forEach((x) => allXSet.add(x));
+    }
+    const allX = Array.from(allXSet).sort((a, b) => a - b);
+
+    const collection = new SC.StackedColumnCollection(wasmContext, {
+        isOneHundredPercent: false,
+    });
+    collection.dataPointWidth = 0.7;
+
+    for (const [seriesId, data] of seriesDataMap) {
+        // Build a lookup from x -> y for this series
+        const xyMap = new Map();
+        for (let i = 0; i < data.xValues.length; i++) {
+            xyMap.set(data.xValues[i], data.yValues[i]);
+        }
+
+        // Pad to the full X set, using NaN for missing values
+        const paddedY = allX.map((x) => (xyMap.has(x) ? xyMap.get(x) : NaN));
+
+        const dataSeries = new SC.XyDataSeries(wasmContext, {
+            xValues: allX,
+            yValues: paddedY,
+            dataSeriesName: data.name,
+            containsNaN: true,
+        });
+
+        const columnSeries = new SC.StackedColumnRenderableSeries(wasmContext, {
+            id: seriesId,
+            dataSeries,
+            fill: data.color,
+            stroke: data.color,
+            strokeThickness: 1,
+            opacity: 0.85,
+            stackedGroupId: seriesId, // unique per series = side-by-side
+        });
+
+        collection.add(columnSeries);
+    }
+
+    surface.renderableSeries.add(collection);
 }
