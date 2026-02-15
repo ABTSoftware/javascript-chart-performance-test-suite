@@ -1,25 +1,91 @@
 // IndexedDB setup for persistence
 let db = null;
 const DB_NAME = 'ChartPerformanceResults';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 const STORE_NAME = 'testResults';
+const RESULT_SETS_STORE = 'resultSets';
+const RESERVED_RESULT_SET_LOCAL = 'local';
 
 async function initIndexedDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-        
+
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
             db = request.result;
             resolve();
         };
-        
+
         request.onupgradeneeded = (event) => {
             const database = event.target.result;
-            if (!database.objectStoreNames.contains(STORE_NAME)) {
-                const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                store.createIndex('chartLibrary', 'chartLibrary', { unique: false });
-                store.createIndex('testCase', 'testCase', { unique: false });
+            const tx = event.target.transaction;
+            const oldVersion = event.oldVersion;
+
+            // --- v0/v1 → v2: create stores and indices ---
+            if (oldVersion < 2) {
+                if (!database.objectStoreNames.contains(RESULT_SETS_STORE)) {
+                    database.createObjectStore(RESULT_SETS_STORE, { keyPath: 'id' });
+                }
+
+                if (!database.objectStoreNames.contains(STORE_NAME)) {
+                    const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    store.createIndex('chartLibrary', 'chartLibrary', { unique: false });
+                    store.createIndex('testCase', 'testCase', { unique: false });
+                    store.createIndex('resultSetId', 'resultSetId', { unique: false });
+                } else {
+                    const store = tx.objectStore(STORE_NAME);
+                    if (!store.indexNames.contains('resultSetId')) {
+                        store.createIndex('resultSetId', 'resultSetId', { unique: false });
+                    }
+                }
+            }
+
+            // --- v0/v1/v2 → v3: consolidate all reserved sets into "local" ---
+            if (oldVersion < 3) {
+                const store = tx.objectStore(STORE_NAME);
+                const rsStore = tx.objectStore(RESULT_SETS_STORE);
+                const LEGACY_IDS = ['default', 'playwright', 'latest-run'];
+
+                const cursorReq = store.openCursor();
+                const toDelete = [];
+                const toAdd = [];
+
+                cursorReq.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor) {
+                        const record = cursor.value;
+                        const rsId = record.resultSetId;
+                        if (!rsId || LEGACY_IDS.includes(rsId)) {
+                            let baseId = record.id;
+                            for (const prefix of LEGACY_IDS) {
+                                if (baseId.startsWith(prefix + '_')) {
+                                    baseId = baseId.substring(prefix.length + 1);
+                                    break;
+                                }
+                            }
+                            toDelete.push(record.id);
+                            toAdd.push({
+                                ...record,
+                                id: `${RESERVED_RESULT_SET_LOCAL}_${baseId}`,
+                                resultSetId: RESERVED_RESULT_SET_LOCAL,
+                            });
+                        }
+                        cursor.continue();
+                    } else {
+                        toDelete.forEach((id) => store.delete(id));
+                        toAdd.forEach((rec) => store.put(rec));
+
+                        LEGACY_IDS.forEach((id) => rsStore.delete(id));
+
+                        rsStore.put({
+                            id: RESERVED_RESULT_SET_LOCAL,
+                            label: 'Local',
+                            source: 'system',
+                            createdAt: Date.now(),
+                            updatedAt: Date.now(),
+                        });
+                    }
+                };
             }
         };
     });
@@ -27,77 +93,73 @@ async function initIndexedDB() {
 
 async function saveTestResults(chartLibrary, testCase, results) {
     console.log('=== saveTestResults CALLED ===');
-    
+
     if (!db) {
         console.error('Database not initialized in saveTestResults');
         throw new Error('Database not initialized');
     }
-    
+
     console.log('Database is available:', !!db);
     console.log('Database name:', db.name);
     console.log('Database version:', db.version);
-    
+
     try {
         const transaction = db.transaction([STORE_NAME], 'readwrite');
         console.log('Transaction created successfully');
-        
+
         const store = transaction.objectStore(STORE_NAME);
         console.log('Object store retrieved successfully');
-        
+
         const data = {
-            id: `${chartLibrary}_${testCase}`,
+            id: `${RESERVED_RESULT_SET_LOCAL}_${chartLibrary}_${testCase}`,
             chartLibrary,
             testCase,
             results,
-            timestamp: Date.now()
+            resultSetId: RESERVED_RESULT_SET_LOCAL,
+            timestamp: Date.now(),
         };
-        
+
         console.log('=== DATA TO SAVE ===');
         console.log('ID:', data.id);
         console.log('Chart Library:', data.chartLibrary);
         console.log('Test Case:', data.testCase);
+        console.log('Result Set ID:', data.resultSetId);
         console.log('Results type:', typeof data.results);
         console.log('Results is array:', Array.isArray(data.results));
         console.log('Results length:', data.results?.length);
         console.log('Timestamp:', data.timestamp);
-        console.log('Full data object:', JSON.stringify(data, null, 2));
-        
+
         return new Promise((resolve, reject) => {
             const request = store.put(data);
-            
+
             request.onsuccess = (event) => {
                 console.log('=== IndexedDB SAVE SUCCESS ===');
                 console.log('Save successful, result:', event.target.result);
                 console.log('Data saved with ID:', data.id);
                 resolve();
             };
-            
+
             request.onerror = (event) => {
                 console.error('=== IndexedDB SAVE ERROR ===');
                 console.error('Save error:', event.target.error);
-                console.error('Error code:', event.target.error?.code);
-                console.error('Error name:', event.target.error?.name);
-                console.error('Error message:', event.target.error?.message);
                 reject(event.target.error);
             };
-            
+
             transaction.oncomplete = () => {
                 console.log('Transaction completed successfully');
             };
-            
+
             transaction.onerror = (event) => {
                 console.error('Transaction error:', event.target.error);
             };
-            
+
             transaction.onabort = (event) => {
                 console.error('Transaction aborted:', event.target.error);
             };
         });
-        
     } catch (error) {
         console.error('=== saveTestResults EXCEPTION ===');
         console.error('Exception in saveTestResults:', error);
-        console.error('Exception stack:', error.stack);
         throw error;
     }
 }
@@ -107,12 +169,12 @@ async function saveTestResults(chartLibrary, testCase, results) {
     await initIndexedDB();
     displaySystemInfo();
     await initializeStatsChart();
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const testGroupId = urlParams.get('test_group_id');
-    console.log("test_group_id", testGroupId);
+    console.log('test_group_id', testGroupId);
     const testGroup = gGetTestGroup(testGroupId);
-    if (!testGroup) throw Error("testGroup is undefined, check query string param test_group_id!")
+    if (!testGroup) throw Error('testGroup is undefined, check query string param test_group_id!');
     const testGroupName = testGroup.name;
     const tests = testGroup.tests;
     for (let i = 0; i < tests.length; i++) {
@@ -121,7 +183,13 @@ async function saveTestResults(chartLibrary, testCase, results) {
         gTestStarted(testConfig, i);
 
         gSetLibInfo(i, eLibName(), eLibVersion());
-        const { testDuration, series: seriesNumber, points: pointsNumber, increment: incrementPoints, charts: chartsNumber } = testConfig;
+        const {
+            testDuration,
+            series: seriesNumber,
+            points: pointsNumber,
+            increment: incrementPoints,
+            charts: chartsNumber,
+        } = testConfig;
 
         // Select Test
         /** @type {{appendData: ()=>void, deleteChart: ()=>void, updateChart: (frame: number)=>void, createChart: () => Promise<any>, generateData: () => void}} */
@@ -203,17 +271,21 @@ async function saveTestResults(chartLibrary, testCase, results) {
         }
 
         const startTime = gTestInitialDataAppended(i);
-        
+
         // Wait for multiple frames to ensure data is actually rendered
         await nextFrameRender();
         await nextFrameRender();
         await nextFrameRender();
         gTestFirstFrameRendered(i);
-        
+
         // Check if total setup time (lib load + data append) exceeds test duration - if so, fail with HANGING
         const totalSetupDuration = performance.now() - gGetResultRecord(i).timestampTestStart;
         if (totalSetupDuration > testDuration) {
-            console.error(`Total setup time (${totalSetupDuration.toFixed(2)}ms) exceeded test duration (${testDuration}ms) - marking as HANGING`);
+            console.error(
+                `Total setup time (${totalSetupDuration.toFixed(
+                    2
+                )}ms) exceeded test duration (${testDuration}ms) - marking as HANGING`
+            );
             perfTest.deleteChart();
             perfTest = undefined;
             gTestFinished(i, 0, 0, [], true, 'HANGING');
@@ -239,39 +311,43 @@ async function saveTestResults(chartLibrary, testCase, results) {
         const MAX_REALISTIC_FPS = 240; // Cap at monitor refresh rate
         const MIN_FRAME_TIME = 1000 / MAX_REALISTIC_FPS; // ~4.17ms for 240 FPS
 
-        const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
+        const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
         const runUpdateChart = async () => {
             const oneFrameTest = false;
             const currentTime = performance.now();
             const currentDuration = currentTime - startTime;
-            
+
             // Check if we should stop the test
             const isFinished = oneFrameTest ? frame === 0 : currentDuration >= testDuration || perfTest === undefined;
 
             mem = window.performance.memory?.usedJSHeapSize / 1048576;
 
             if (isFinished) {
-                console.log(`Total Frames: ${frame}, Average FPS: ${(1000 / currentDuration * frame).toFixed(2)}, mem: ${mem.toFixed(0)} mb`);
+                console.log(
+                    `Total Frames: ${frame}, Average FPS: ${((1000 / currentDuration) * frame).toFixed(
+                        2
+                    )}, mem: ${mem.toFixed(0)} mb`
+                );
                 return 'finished'; // Test completed normally
             }
 
             const before = performance.now();
             let frameTime;
             let datapointCount;
-            
+
             try {
                 datapointCount = perfTest.updateChart(frame);
-                
+
                 frame++;
                 await nextFrameRender();
-                
+
                 const after = performance.now();
                 frameTime = after - before;
-                
+
                 // Cap unrealistic frame times to minimum realistic value
                 frameTime = Math.max(frameTime, MIN_FRAME_TIME);
-                
+
                 frameTimings.push(frameTime);
             } catch (error) {
                 console.error('Error during updateChart:', error);
@@ -306,17 +382,15 @@ async function saveTestResults(chartLibrary, testCase, results) {
             const message = `frame: ${frame}, fps: ${instantaneousFPS.toFixed(2)}, mem: ${mem.toFixed(0)} mb`;
             if (instantaneousFPS < 1) {
                 console.error(message);
-            }
-            else if (instantaneousFPS < 5) {
+            } else if (instantaneousFPS < 5) {
                 console.warn(message);
-            }
-            else if (frame % 60 === 0) {
+            } else if (frame % 60 === 0) {
                 console.log(message);
             }
-            
+
             return 'continue'; // Continue the loop
         };
-        
+
         // Run the test loop
         let hasError = false;
         while (true) {
@@ -339,7 +413,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
         const datapointCountElement = document.getElementById('datapoint-count');
         const actualTestDuration = performance.now() - startTime;
         if (currentFpsElement) {
-            const averageFPS = (1000 * frame / actualTestDuration).toFixed(2);
+            const averageFPS = ((1000 * frame) / actualTestDuration).toFixed(2);
             currentFpsElement.textContent = `${averageFPS} (avg)`;
         }
         if (frameCountElement) {
@@ -356,7 +430,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
         gTestFinished(i, frame, mem, frameTimings, hasError);
 
         // Only show "chart deleted" message after the last test completes
-        const isLastTest = (i === tests.length - 1);
+        const isLastTest = i === tests.length - 1;
         if (isLastTest) {
             const chartRootDiv = document.getElementById('chart-root');
             if (chartRootDiv) {
@@ -395,7 +469,9 @@ async function saveTestResults(chartLibrary, testCase, results) {
 
         mem = window.performance.memory?.usedJSHeapSize / 1048576;
         console.log(`deleted chart, mem after = ${mem} mb`);
-        console.log(`Note: GC runs non-deterministically, so the memory usage may not decrease immediately after the chart is deleted.`)
+        console.log(
+            `Note: GC runs non-deterministically, so the memory usage may not decrease immediately after the chart is deleted.`
+        );
     }
 
     const result = G_RESULT;
@@ -404,7 +480,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
     const fileName = `${eLibName()}_${eLibVersion()}.json`;
     downLoadJsonResult(result, fileName);
     const tableElement = createResultTable(result, testGroupName);
-    
+
     // Persist results to IndexedDB
     try {
         const chartLibrary = `${eLibName()} ${eLibVersion()}`;
@@ -415,15 +491,15 @@ async function saveTestResults(chartLibrary, testCase, results) {
         console.log('Result is array:', Array.isArray(result));
         console.log('Result length:', result?.length);
         console.log('Result sample (first item):', result?.[0]);
-        
+
         // Create a copy of results without frameTimings for persistence
-        const resultsForPersistence = result.map(item => {
+        const resultsForPersistence = result.map((item) => {
             const { frameTimings, ...itemWithoutFrameTimings } = item;
             return itemWithoutFrameTimings;
         });
-        
+
         console.log('Results for persistence (without frameTimings):', resultsForPersistence);
-        
+
         console.log('Calling saveTestResults directly...');
         await saveTestResults(chartLibrary, testGroupName, resultsForPersistence);
         console.log('saveTestResults completed successfully');
@@ -436,26 +512,26 @@ async function saveTestResults(chartLibrary, testCase, results) {
         console.error('Error message:', error.message);
     }
 
-    tableElement?.classList.add("results-table-ready");
+    tableElement?.classList.add('results-table-ready');
 })();
 
 function getGPUInfo() {
     try {
         const canvas = document.createElement('canvas');
         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        
+
         if (!gl) {
             return {
                 renderer: 'WebGL not supported',
                 vendor: 'Unknown',
-                angle: 'N/A'
+                angle: 'N/A',
             };
         }
 
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
         let renderer = 'Unknown';
         let vendor = 'Unknown';
-        
+
         if (debugInfo) {
             renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || 'Unknown';
             vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || 'Unknown';
@@ -464,33 +540,34 @@ function getGPUInfo() {
             vendor = gl.getParameter(gl.VENDOR) || 'Unknown';
         }
 
-        const isAngle = renderer.toLowerCase().includes('angle') || 
-                       vendor.toLowerCase().includes('google') ||
-                       renderer.toLowerCase().includes('direct3d');
+        const isAngle =
+            renderer.toLowerCase().includes('angle') ||
+            vendor.toLowerCase().includes('google') ||
+            renderer.toLowerCase().includes('direct3d');
 
         canvas.remove();
 
         return {
             renderer: renderer,
             vendor: vendor,
-            angle: isAngle ? 'Yes (ANGLE)' : 'No'
+            angle: isAngle ? 'Yes (ANGLE)' : 'No',
         };
     } catch (error) {
         console.warn('Failed to get GPU info:', error);
         return {
             renderer: 'Detection failed',
             vendor: 'Detection failed',
-            angle: 'Detection failed'
+            angle: 'Detection failed',
         };
     }
 }
 
 function displaySystemInfo() {
     const gpuInfo = getGPUInfo();
-    
+
     const systemInfoContainer = document.getElementById('system-info');
     if (!systemInfoContainer) return;
-    
+
     systemInfoContainer.style.cssText = `
         margin: 20px 0;
         padding: 15px;
@@ -501,7 +578,7 @@ function displaySystemInfo() {
         font-size: 12px;
         line-height: 1.4;
     `;
-    
+
     systemInfoContainer.innerHTML = `
         <h3 style="margin-top: 0; color: #333;">System Information</h3>
         <div><strong>User Agent:</strong> ${navigator.userAgent}</div>
@@ -510,8 +587,8 @@ function displaySystemInfo() {
         <div><strong>ANGLE:</strong> ${gpuInfo.angle}</div>
         <div><strong>Platform:</strong> ${navigator.platform}</div>
         <div><strong>Hardware Concurrency:</strong> ${navigator.hardwareConcurrency || 'Unknown'} cores</div>
-        <div><strong>Memory:</strong> ${navigator.deviceMemory ?navigator.deviceMemory + ' GB' : 'Unknown'}</div>
-        
+        <div><strong>Memory:</strong> ${navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'Unknown'}</div>
+
         <h3 style="margin-top: 20px; margin-bottom: 10px; color: #333;">Stats</h3>
         <div id="stats-container">
             <div><strong>Current FPS:</strong> <span id="current-fps">-</span></div>
@@ -529,8 +606,16 @@ let testStartTime = null;
 
 async function initializeStatsChart() {
     try {
-        const { SciChartSurface, NumericAxis, XyDataSeries, FastMountainRenderableSeries, NumberRange, EAutoRange, SciChartJSLightTheme } = SciChart;
-        
+        const {
+            SciChartSurface,
+            NumericAxis,
+            XyDataSeries,
+            FastMountainRenderableSeries,
+            NumberRange,
+            EAutoRange,
+            SciChartJSLightTheme,
+        } = SciChart;
+
         SciChartSurface.configure({
             wasmUrl: '/scichart/lib/scichart2d.wasm',
             wasmNoSimdUrl: '/scichart/lib/scichart2d-nosimd.wasm',
@@ -538,9 +623,9 @@ async function initializeStatsChart() {
 
         const { sciChartSurface, wasmContext } = await SciChartSurface.create('stats-chart-root', {
             theme: new SciChartJSLightTheme(),
-            loader: false
+            loader: false,
         });
-        
+
         // Configure X-axis (time in seconds)
         const xAxis = new NumericAxis(wasmContext, {
             visibleRange: new NumberRange(0, testDuration / 1000), // Convert testDuration to seconds
@@ -551,10 +636,10 @@ async function initializeStatsChart() {
             drawMinorGridLines: false,
             drawMajorBands: false,
             drawMajorTicks: false,
-            drawMinorTicks: false
+            drawMinorTicks: false,
         });
         sciChartSurface.xAxes.add(xAxis);
-        
+
         // Configure Y-axis (FPS) with auto-ranging and growth factor
         const yAxis = new NumericAxis(wasmContext, {
             autoRange: EAutoRange.Always,
@@ -565,18 +650,18 @@ async function initializeStatsChart() {
             drawMinorGridLines: false,
             drawMajorBands: false,
             drawMajorTicks: false,
-            drawMinorTicks: false
+            drawMinorTicks: false,
         });
-        
+
         sciChartSurface.yAxes.add(yAxis);
-        
+
         // Create data series
         statsDataSeries = new XyDataSeries(wasmContext, {
             dataIsSortedInX: true,
             containsNaN: false,
         });
         statsDataSeries.capacity = 2400;
-        
+
         // Create mountain series
         const mountainSeries = new FastMountainRenderableSeries(wasmContext, {
             dataSeries: statsDataSeries,
@@ -584,11 +669,10 @@ async function initializeStatsChart() {
             stroke: 'SteelBlue',
             strokeThickness: 2,
         });
-        
+
         sciChartSurface.renderableSeries.add(mountainSeries);
-        
+
         statsChart = sciChartSurface;
-        
     } catch (error) {
         console.warn('Failed to initialize stats chart:', error);
     }
@@ -598,11 +682,10 @@ function updateStatsChart(instantaneousFPS) {
     if (statsChart && statsDataSeries && testStartTime) {
         const currentTime = (performance.now() - testStartTime) / 1000; // Convert to seconds
         statsDataSeries.append(currentTime, instantaneousFPS);
-        
+
         // X-axis range is fixed to show the entire test duration, no need to update
     }
 }
-
 
 function nextFrameRender() {
     return new Promise((resolve) => requestAnimationFrame(resolve));
@@ -612,10 +695,10 @@ function downLoadJsonResult(jsonObject, filename) {
     // const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(jsonObject));
     const dlAnchorElem = document.getElementById('download-link');
     dlAnchorElem.style.display = 'block';
-    dlAnchorElem.setAttribute('href', "#");
+    dlAnchorElem.setAttribute('href', '#');
     // dlAnchorElem.setAttribute('download', filename);
     dlAnchorElem.addEventListener('click', () => {
-        const table = document.getElementById("table");
+        const table = document.getElementById('table');
         const tableData = [];
 
         // Loop through table rows excluding header
@@ -629,14 +712,14 @@ function downLoadJsonResult(jsonObject, filename) {
             }
 
             // Join each cell data with a tab, representing a column
-            tableData.push(rowData.join("\t"));
+            tableData.push(rowData.join('\t'));
         }
 
         // Join each row with a newline character to represent a new row in Excel
-        const tableString = tableData.join("\n");
+        const tableString = tableData.join('\n');
 
         // Create a temporary textarea element to hold the table string
-        const tempTextArea = document.createElement("textarea");
+        const tempTextArea = document.createElement('textarea');
         tempTextArea.value = tableString;
 
         // Append textarea to the body
@@ -646,7 +729,7 @@ function downLoadJsonResult(jsonObject, filename) {
         tempTextArea.select();
 
         // Copy the content to the clipboard
-        document.execCommand("copy");
+        document.execCommand('copy');
 
         // Remove the temporary textarea from the DOM
         document.body.removeChild(tempTextArea);
@@ -664,19 +747,19 @@ function getHeatmapColor(value, min, max, higherIsBetter = true) {
     if (value === null || value === undefined || min === max) {
         return 'transparent';
     }
-    
+
     // Normalise value to 0-1 range
     const normalised = (value - min) / (max - min);
-    
+
     // For "higher is better", green = high values, red = low values
     // For "lower is better", green = low values, red = high values
-    const greenIntensity = higherIsBetter ? normalised : (1 - normalised);
-    
+    const greenIntensity = higherIsBetter ? normalised : 1 - normalised;
+
     // Light green (#AAFFAA) to light red (#FFAAAA) gradient
-    const red = Math.round(255 - (greenIntensity * 85));   // 255 to 170 (0xFF to 0xAA)
-    const green = Math.round(170 + (greenIntensity * 85)); // 170 to 255 (0xAA to 0xFF)
-    const blue = Math.round(170);                          // Always 170 (0xAA)
-    
+    const red = Math.round(255 - greenIntensity * 85); // 255 to 170 (0xFF to 0xAA)
+    const green = Math.round(170 + greenIntensity * 85); // 170 to 255 (0xAA to 0xFF)
+    const blue = Math.round(170); // Always 170 (0xAA)
+
     return `rgb(${red}, ${green}, ${blue})`;
 }
 
@@ -684,18 +767,18 @@ function getRedHeatmapColor(value, min, max) {
     if (value === null || value === undefined || min === max) {
         return 'transparent';
     }
-    
+
     // Normalise value to 0-1 range
     const normalised = (value - min) / (max - min);
-    
+
     // Red gradient from very pale red to dark crimson with alpha for text readability
     // Higher values = darker red (worse performance for timing)
     const intensity = normalised * 0.7; // Cap at 0.7 to ensure text readability
     const red = 220; // Base red value (crimson)
-    const green = Math.round(255 - (intensity * 200)); // 255 to 55
-    const blue = Math.round(255 - (intensity * 235));  // 255 to 20
-    const alpha = 0.3 + (intensity * 0.5); // 0.3 to 0.8 alpha
-    
+    const green = Math.round(255 - intensity * 200); // 255 to 55
+    const blue = Math.round(255 - intensity * 235); // 255 to 20
+    const alpha = 0.3 + intensity * 0.5; // 0.3 to 0.8 alpha
+
     return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
@@ -703,24 +786,26 @@ function createResultTable(resultArr, testGroupName) {
     const note = `<p><b>Lib Load</b> time includes time spent for deletion of the previous chart.</p>
         <p>For scichart.js <b>First Frame</b> time for the first test is bigger because <b>wasm</b> and <b>data</b> files are downloaded from CDN.</p>
         <p>After a test case with FPS less than 2, subsequent are skipped.</p>`;
-    
+
     // Calculate min/max values for heatmap scaling
     const fpsValues = [];
     const memoryValues = [];
     const frameValues = [];
     const dataAppendValues = [];
     const firstFrameValues = [];
-    
-    resultArr.forEach(row => {
+
+    resultArr.forEach((row) => {
         if (row.minFPS !== null && row.minFPS !== undefined) fpsValues.push(row.minFPS);
         if (row.maxFPS !== null && row.maxFPS !== undefined) fpsValues.push(row.maxFPS);
         if (row.averageFPS !== null && row.averageFPS !== undefined) fpsValues.push(row.averageFPS);
         if (row.memory !== null && row.memory !== undefined) memoryValues.push(row.memory);
         if (row.numberOfFrames !== null && row.numberOfFrames !== undefined) frameValues.push(row.numberOfFrames);
-        if (row.benchmarkTimeInitialDataAppend !== null && row.benchmarkTimeInitialDataAppend !== undefined) dataAppendValues.push(row.benchmarkTimeInitialDataAppend);
-        if (row.benchmarkTimeFirstFrame !== null && row.benchmarkTimeFirstFrame !== undefined) firstFrameValues.push(row.benchmarkTimeFirstFrame);
+        if (row.benchmarkTimeInitialDataAppend !== null && row.benchmarkTimeInitialDataAppend !== undefined)
+            dataAppendValues.push(row.benchmarkTimeInitialDataAppend);
+        if (row.benchmarkTimeFirstFrame !== null && row.benchmarkTimeFirstFrame !== undefined)
+            firstFrameValues.push(row.benchmarkTimeFirstFrame);
     });
-    
+
     const fpsMin = Math.min(...fpsValues, 0);
     const fpsMax = Math.max(...fpsValues);
     const memoryMin = Math.min(...memoryValues);
@@ -731,7 +816,7 @@ function createResultTable(resultArr, testGroupName) {
     const dataAppendMax = Math.max(...dataAppendValues);
     const firstFrameMin = Math.min(...firstFrameValues);
     const firstFrameMax = Math.max(...firstFrameValues);
-    
+
     let resStr = `<table id="table">`;
     const tableHeader = `<tr>
         <th>Lib</th>
@@ -750,7 +835,7 @@ function createResultTable(resultArr, testGroupName) {
         <th title="Test completion status: OK (successful), HANGING (exceeded time limit), ERROR_APPEND_DATA (data append failed), UNSUPPORTED (test not implemented), or SKIPPED (skipped due to previous failures)">Status</th>
     </tr>`;
     resStr += tableHeader;
-    
+
     resultArr.forEach((row) => {
         let rowStr = `<tr>`;
         rowStr += `<td>${row.configLibName} ${row.configLibVersion}</td>`;
@@ -759,19 +844,25 @@ function createResultTable(resultArr, testGroupName) {
         rowStr += `<td style='text-align: right'>${row.config?.series}</td>`;
         rowStr += `<td style='text-align: right'>${row.config?.charts || '-'}</td>`;
         rowStr += `<td style='text-align: right'>${roundToSignificantFigures(row.benchmarkTimeLibLoad, 2)}</td>`;
-        
+
         // First Frame column with red heatmap (higher is worse)
         const firstFrameBg = getRedHeatmapColor(row.benchmarkTimeFirstFrame, firstFrameMin, firstFrameMax);
-        rowStr += `<td style='text-align: right; background-color: ${firstFrameBg}'>${roundToSignificantFigures(row.benchmarkTimeFirstFrame, 2)}</td>`;
-        
+        rowStr += `<td style='text-align: right; background-color: ${firstFrameBg}'>${roundToSignificantFigures(
+            row.benchmarkTimeFirstFrame,
+            2
+        )}</td>`;
+
         // Data Append column with red heatmap (higher is worse)
         const dataAppendBg = getRedHeatmapColor(row.benchmarkTimeInitialDataAppend, dataAppendMin, dataAppendMax);
-        rowStr += `<td style='text-align: right; background-color: ${dataAppendBg}'>${roundToSignificantFigures(row.benchmarkTimeInitialDataAppend, 2)}</td>`;
-        
+        rowStr += `<td style='text-align: right; background-color: ${dataAppendBg}'>${roundToSignificantFigures(
+            row.benchmarkTimeInitialDataAppend,
+            2
+        )}</td>`;
+
         // Memory column with heatmap (lower is better)
         const memoryBg = getHeatmapColor(row.memory, memoryMin, memoryMax, false);
         rowStr += `<td style='text-align: right; background-color: ${memoryBg}'>${row.memory?.toFixed(0)}</td>`;
-        
+
         // FPS columns with heatmap (higher is better)
         const minFpsBg = getHeatmapColor(row.minFPS, fpsMin, fpsMax, true);
         const maxFpsBg = getHeatmapColor(row.maxFPS, fpsMin, fpsMax, true);
@@ -779,11 +870,11 @@ function createResultTable(resultArr, testGroupName) {
         rowStr += `<td style='text-align: right; background-color: ${minFpsBg}'>${row.minFPS?.toFixed(2)}</td>`;
         rowStr += `<td style='text-align: right; background-color: ${maxFpsBg}'>${row.maxFPS?.toFixed(2)}</td>`;
         rowStr += `<td style='text-align: right; background-color: ${avgFpsBg}'>${row.averageFPS?.toFixed(2)}</td>`;
-        
+
         // Total Frames column with heatmap (higher is better)
         const framesBg = getHeatmapColor(row.numberOfFrames, framesMin, framesMax, true);
         rowStr += `<td style='text-align: right; background-color: ${framesBg}'>${row.numberOfFrames}</td>`;
-        
+
         // Status column
         let statusText = 'OK';
         let statusBg = '#CCFFCC';
@@ -805,5 +896,5 @@ function createResultTable(resultArr, testGroupName) {
     const tableElement = document.getElementById('result-table');
     tableElement.innerHTML = resStr + note;
 
-    return tableElement
+    return tableElement;
 }

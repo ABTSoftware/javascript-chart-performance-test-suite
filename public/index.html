@@ -6,13 +6,30 @@
         <link rel="stylesheet" href="style.css" />
     </head>
     <body>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin: 0;">Performance Comparison Test Suite</h1>
-            <div id="downloadButtonContainer"></div>
+        <div class="page-header">
+            <h1>Performance Comparison Test Suite</h1>
+            <nav class="page-nav">
+                <a href="charts.html">Charts View</a>
+            </nav>
         </div>
-        <p>Click RUN on any chart library / test case to run the test. After that <strong>close the tab</strong> before starting any new tests</p>
+        <div id="filter-panel">
+            <div id="resultSetFilters"><strong>Result Sets:</strong></div>
+            <div id="toolbar">
+                <button id="importBtn">Import Results...</button>
+                <input type="file" id="importFileInput" accept=".json" style="display: none" />
+                <button id="exportSelectedBtn">Export Selected</button>
+            </div>
+        </div>
+        <div id="filter-panel-libs">
+            <div id="libraryFilters"><strong>Libraries:</strong></div>
+        </div>
+        <p>
+            Click RUN on any chart library / test case to run the test. After that <strong>close the tab</strong> before
+            starting any new tests
+        </p>
         <p>Refresh the homepage to view updated results</p>
         <div id="testsTableContainer"></div>
+        <script src="shared.js"></script>
         <script src="index.js"></script>
     </body>
 </html>
