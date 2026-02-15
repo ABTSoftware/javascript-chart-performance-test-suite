@@ -95,15 +95,14 @@ async function loadDataAndBuildUI() {
 
     const rsIdSet = new Set();
     const libSet = new Set();
+
+    // Always include all chart libraries from CHARTS
+    CHARTS.forEach((c) => libSet.add(c.name));
+
+    // Add any result set IDs from data
     allResultsData.forEach((r) => {
         rsIdSet.add(r.resultSetId || RESERVED_RESULT_SET_LOCAL);
-        libSet.add(getShortLibName(r.chartLibrary));
     });
-
-    // If no libraries found in data, pre-populate from CHARTS
-    if (libSet.size === 0) {
-        CHARTS.forEach((c) => libSet.add(c.name));
-    }
 
     // Only check "Local" by default; imported sets start unchecked
     checkedResultSets = new Set();
