@@ -218,6 +218,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         RolloverModifier: SciChart.RolloverModifier,
         CursorModifier: SciChart.CursorModifier,
         ELegendPlacement: SciChart.ELegendPlacement,
+        ELegendOrientation: SciChart.ELegendOrientation,
         NumberRange: SciChart.NumberRange,
         StackedColumnRenderableSeries: SciChart.StackedColumnRenderableSeries,
         StackedColumnCollection: SciChart.StackedColumnCollection,
@@ -395,16 +396,30 @@ async function createAllSurfaces(container) {
         const categoryKeys = sortedEntries.map((e) => e[0]);
 
         const divId = 'chart-' + testKey;
+        const legendDivId = 'legend-' + testKey;
+
         const chartDiv = document.createElement('div');
         chartDiv.id = divId;
         chartDiv.className = 'chart-div';
         section.appendChild(chartDiv);
+
+        // Create legend container below the chart
+        const legendDiv = document.createElement('div');
+        legendDiv.id = legendDivId;
+        legendDiv.className = 'legend-div';
+        section.appendChild(legendDiv);
+
         container.appendChild(section);
 
         const { sciChartSurface, wasmContext } = await SC.SciChartSurface.create(divId, {
             theme: new SC.SciChartJSLightTheme(),
             title: testName,
-            titleStyle: { fontSize: 16 },
+            titleStyle: {
+                fontSize: 16,
+                color: "#333",
+                fontWeight: "bold",
+                useNativeText: false,
+            },
         });
 
         const labelProvider = new SC.TextLabelProvider({
@@ -431,13 +446,35 @@ async function createAllSurfaces(container) {
         });
         sciChartSurface.yAxes.add(yAxis);
 
-        // sciChartSurface.chartModifiers.add(
-        //     new SC.LegendModifier({
-        //         placement: SC.ELegendPlacement.TopRight,
-        //         showCheckboxes: true,
-        //         showSeriesMarkers: true,
-        //     })
-        // );
+        // Create legend modifier with custom markers
+        const legendModifier = new SC.LegendModifier({
+            placementDivId: legendDivId,
+            orientation: SC.ELegendOrientation.Horizontal,
+            showSeriesMarkers: true,
+            showCheckboxes: false,
+        });
+
+        // Override getLegendItemHTML to create custom circular markers
+        legendModifier.sciChartLegend.getLegendItemHTML = (orientation, showCheckboxes, showSeriesMarkers, item) => {
+            const display = orientation === SC.ELegendOrientation.Vertical ? "flex" : "inline-flex";
+            let str = `<span class="scichart__legend-item" style="display: ${display}; align-items: center; margin-right: 8px; padding: 0 4px; white-space: nowrap; gap: 5px; font-size: 12px; font-weight: bold;">`;
+
+            if (showCheckboxes) {
+                const checked = item.checked ? "checked" : "";
+                str += `<input ${checked} type="checkbox" id="${item.id}">`;
+            }
+
+            if (showSeriesMarkers) {
+                str += `<svg xmlns="http://www.w3.org/2000/svg" for="${item.id}" style="width: 10px; height: 10px;" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" fill="${item.color}" stroke="${item.color}" stroke-width="1" />
+                </svg>`;
+            }
+
+            str += `<label for="${item.id}" style="font-size: 12px; font-weight: bold;">${item.name}</label></span>`;
+            return str;
+        };
+
+        sciChartSurface.chartModifiers.add(legendModifier);
 
         sciChartSurface.chartModifiers.add(
             new SC.CursorModifier({
