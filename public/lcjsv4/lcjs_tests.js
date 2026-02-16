@@ -837,6 +837,10 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
     };
 
     const createChart = async () => {
+        if (chartsNum > 16) {
+            console.warn('LCJS supports a maximum of 16 WebGL Charts* this issue is fixed in the latest version but for the purpose of this test, we will skip > 16 charts');
+            return false;
+        }
         // Initialise random seed for fair comparison
         fastRandomSeed = 1;
 
