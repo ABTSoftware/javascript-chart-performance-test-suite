@@ -3,9 +3,9 @@
 const LIBRARY_COLORS = {
     'SciChart.js': '#4083E8',
     Highcharts: '#2B2D42',
-    'Chart.js': '#FF6384',
-    'Plotly.js': '#636EFA',
-    'Apache ECharts': '#E63946',
+    'Chart.js': '#FF8CFF',
+    'Plotly.js': '#806EFA',
+    'Apache ECharts': '#FF3946',
     uPlot: '#2A9D8F',
     ChartGPU: '#F4A261',
 };
@@ -212,6 +212,10 @@ document.addEventListener('DOMContentLoaded', async function () {
         XyDataSeries: SciChart.XyDataSeries,
         FastLineRenderableSeries: SciChart.FastLineRenderableSeries,
         EllipsePointMarker: SciChart.EllipsePointMarker,
+        SquarePointMarker: SciChart.SquarePointMarker,
+        TrianglePointMarker: SciChart.TrianglePointMarker,
+        CrossPointMarker: SciChart.CrossPointMarker,
+        XPointMarker: SciChart.XPointMarker,
         SciChartJSLightTheme: SciChart.SciChartJSLightTheme,
         EAutoRange: SciChart.EAutoRange,
         LegendModifier: SciChart.LegendModifier,
@@ -454,7 +458,7 @@ async function createAllSurfaces(container) {
             showCheckboxes: false,
         });
 
-        // Override getLegendItemHTML to create custom circular markers
+        // Override getLegendItemHTML to create custom markers matching the series
         legendModifier.sciChartLegend.getLegendItemHTML = (orientation, showCheckboxes, showSeriesMarkers, item) => {
             const display = orientation === SC.ELegendOrientation.Vertical ? "flex" : "inline-flex";
             let str = `<span class="scichart__legend-item" style="display: ${display}; align-items: center; margin-right: 8px; padding: 0 4px; white-space: nowrap; gap: 5px; font-size: 12px; font-weight: bold;">`;
@@ -465,8 +469,19 @@ async function createAllSurfaces(container) {
             }
 
             if (showSeriesMarkers) {
-                str += `<svg xmlns="http://www.w3.org/2000/svg" for="${item.id}" style="width: 10px; height: 10px;" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" fill="${item.color}" stroke="${item.color}" stroke-width="1" />
+                // Find the series to get its marker type
+                let markerType = 'ellipse'; // default
+                for (let i = 0; i < sciChartSurface.renderableSeries.size(); i++) {
+                    const series = sciChartSurface.renderableSeries.get(i);
+                    if (series.id === item.id && series.markerType) {
+                        markerType = series.markerType;
+                        break;
+                    }
+                }
+
+                const markerSVG = getMarkerSVG(markerType, item.color);
+                str += `<svg xmlns="http://www.w3.org/2000/svg" for="${item.id}" style="width: 12px; height: 12px;" viewBox="0 0 24 24">
+                    ${markerSVG}
                 </svg>`;
             }
 
@@ -494,6 +509,72 @@ async function createAllSurfaces(container) {
 }
 
 // ──────────────────────────────────────────────
+// Point Marker Helpers
+// ──────────────────────────────────────────────
+
+// Consistent library to marker mapping
+const LIBRARY_MARKER_MAP = {
+    'SciChart.js': 'ellipse',
+    'Highcharts': 'square',
+    'Chart.js': 'triangle',
+    'Plotly.js': 'cross',
+    'Apache ECharts': 'x',
+    'uPlot': 'ellipse',
+    'ChartGPU': 'square',
+};
+
+function getPointMarkerForLibrary(libName) {
+    return LIBRARY_MARKER_MAP[libName] || 'ellipse';
+}
+
+function createPointMarker(wasmContext, markerType, color) {
+    const baseOptions = {
+        width: 8,
+        height: 8,
+        fill: color,
+        stroke: color,
+    };
+
+    // Use higher stroke thickness for Cross and X to make them more visible
+    const strokeThickness = (markerType === 'cross' || markerType === 'x') ? 2 : 1;
+    const options = { ...baseOptions, strokeThickness };
+
+    switch (markerType) {
+        case 'ellipse':
+            return new SC.EllipsePointMarker(wasmContext, options);
+        case 'square':
+            return new SC.SquarePointMarker(wasmContext, options);
+        case 'triangle':
+            return new SC.TrianglePointMarker(wasmContext, options);
+        case 'cross':
+            return new SC.CrossPointMarker(wasmContext, options);
+        case 'x':
+            return new SC.XPointMarker(wasmContext, options);
+        default:
+            return new SC.EllipsePointMarker(wasmContext, options);
+    }
+}
+
+function getMarkerSVG(markerType, color) {
+    switch (markerType) {
+        case 'ellipse':
+            return `<circle cx="12" cy="12" r="8" fill="${color}" stroke="${color}" stroke-width="1" />`;
+        case 'square':
+            return `<rect x="5" y="5" width="14" height="14" fill="${color}" stroke="${color}" stroke-width="1" />`;
+        case 'triangle':
+            return `<polygon points="12,5 20,19 4,19" fill="${color}" stroke="${color}" stroke-width="1" />`;
+        case 'cross':
+            return `<line x1="12" y1="4" x2="12" y2="20" stroke="${color}" stroke-width="3" />
+                    <line x1="4" y1="12" x2="20" y2="12" stroke="${color}" stroke-width="3" />`;
+        case 'x':
+            return `<line x1="6" y1="6" x2="18" y2="18" stroke="${color}" stroke-width="3" />
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="${color}" stroke-width="3" />`;
+        default:
+            return `<circle cx="12" cy="12" r="8" fill="${color}" stroke="${color}" stroke-width="1" />`;
+    }
+}
+
+// ──────────────────────────────────────────────
 // Reactive series update
 // ──────────────────────────────────────────────
 
@@ -504,7 +585,7 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
     });
     const multipleResultSets = checkedResultSets.size > 1 || resultSetIds.length > 1;
 
-    const seriesDataMap = new Map(); // seriesId -> { xValues, yValues, color, dashArray, name }
+    const seriesDataMap = new Map(); // seriesId -> { xValues, yValues, color, dashArray, name, markerType }
     const testData = grouped[testName] || {};
 
     const rsIndexMap = {};
@@ -524,6 +605,7 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
 
             const seriesId = `${rsId}_${shortName}`;
             const color = getColorForLibrary(libName);
+            const markerType = getPointMarkerForLibrary(shortName);
             const xValues = [];
             const yValues = [];
 
@@ -542,7 +624,7 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
             const rsLabel = rsLabelMap[rsId] || rsId;
             const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
 
-            seriesDataMap.set(seriesId, { xValues, yValues, color, dashArray, name });
+            seriesDataMap.set(seriesId, { xValues, yValues, color, dashArray, name, markerType });
         });
     });
 
@@ -612,14 +694,11 @@ function updateLineSeries(surface, wasmContext, seriesDataMap) {
                 stroke: data.color,
                 strokeThickness: 2,
                 strokeDashArray: data.dashArray,
-                pointMarker: new SC.EllipsePointMarker(wasmContext, {
-                    width: 8,
-                    height: 8,
-                    fill: data.color,
-                    stroke: data.color,
-                    strokeThickness: 1,
-                }),
+                pointMarker: createPointMarker(wasmContext, data.markerType, data.color),
             });
+
+            // Store marker type on the series for legend access
+            lineSeries.markerType = data.markerType;
 
             surface.renderableSeries.add(lineSeries);
         }
