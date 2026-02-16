@@ -17,3 +17,4 @@ package-lock.json
 /tests/test-urls.json
 /tests/storage-state.json
 *.pdf
+/.claude
