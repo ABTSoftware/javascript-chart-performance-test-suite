@@ -190,6 +190,8 @@ function getShortLibName(libName) {
 
 // Map<testKey, { surface, wasmContext, categoryKeys, categoryLabels }>
 const surfaceMap = new Map();
+// Map<testKey, { surface, wasmContext }> for benchmark charts
+const benchmarkSurfaceMap = new Map();
 // All loaded data
 let allResultsData = [];
 let allResultSetsData = [];
@@ -211,6 +213,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         TextLabelProvider: SciChart.TextLabelProvider,
         XyDataSeries: SciChart.XyDataSeries,
         FastLineRenderableSeries: SciChart.FastLineRenderableSeries,
+        FastColumnRenderableSeries: SciChart.FastColumnRenderableSeries,
         EllipsePointMarker: SciChart.EllipsePointMarker,
         SquarePointMarker: SciChart.SquarePointMarker,
         TrianglePointMarker: SciChart.TrianglePointMarker,
@@ -347,6 +350,11 @@ function onChartTypeChange(e) {
 
 function clearAllSeries() {
     for (const [, info] of surfaceMap) {
+        const { surface } = info;
+        surface.renderableSeries.clear();
+    }
+    // Also clear benchmark charts
+    for (const [, info] of benchmarkSurfaceMap) {
         const { surface } = info;
         surface.renderableSeries.clear();
     }
@@ -505,6 +513,107 @@ async function createAllSurfaces(container) {
             categoryKeys,
             categoryLabels,
         });
+
+        // ──────────────────────────────────────────────
+        // Create Benchmark Chart (below FPS chart)
+        // ──────────────────────────────────────────────
+
+        const benchmarkDivId = 'benchmark-chart-' + testKey;
+        const benchmarkLegendDivId = 'benchmark-legend-' + testKey;
+
+        const benchmarkChartDiv = document.createElement('div');
+        benchmarkChartDiv.id = benchmarkDivId;
+        benchmarkChartDiv.className = 'benchmark-chart-div';
+        benchmarkChartDiv.style.height = '200px';
+        benchmarkChartDiv.style.marginTop = '20px';
+        section.appendChild(benchmarkChartDiv);
+
+        // Create legend container for benchmark chart
+        const benchmarkLegendDiv = document.createElement('div');
+        benchmarkLegendDiv.id = benchmarkLegendDivId;
+        benchmarkLegendDiv.className = 'legend-div';
+        section.appendChild(benchmarkLegendDiv);
+
+        container.appendChild(section);
+
+        const { sciChartSurface: benchmarkSurface, wasmContext: benchmarkWasmContext } =
+            await SC.SciChartSurface.create(benchmarkDivId, {
+                theme: new SC.SciChartJSLightTheme(),
+                title: `Benchmark Score: ${testName}`,
+                titleStyle: {
+                    fontSize: 14,
+                    color: "#333",
+                    fontWeight: "bold",
+                    useNativeText: false,
+                },
+                isRotatedChart: true, // Rotate 90 degrees for horizontal bars
+            });
+
+        // With isRotatedChart: true, axes are transposed
+        // X-axis will show library names (categories) - appears on left after rotation
+        const benchmarkXAxis = new SC.NumericAxis(benchmarkWasmContext, {
+            axisTitle: 'Library',
+            axisTitleStyle: { fontSize: 12 },
+            labelStyle: { fontSize: 10 },
+        });
+        benchmarkSurface.xAxes.add(benchmarkXAxis);
+
+        // Y-axis will show benchmark scores - appears on bottom after rotation
+        const benchmarkYAxis = new SC.NumericAxis(benchmarkWasmContext, {
+            autoRange: SC.EAutoRange.Always,
+            axisTitle: 'Benchmark Score',
+            axisTitleStyle: { fontSize: 12 },
+            labelStyle: { fontSize: 10 },
+            growBy: new SC.NumberRange(0, 0.1),
+        });
+        benchmarkYAxis.visibleRangeChanged.subscribe((data) => {
+            benchmarkYAxis.visibleRangeProperty = new SC.NumberRange(0, data.visibleRange.max);
+        });
+        benchmarkSurface.yAxes.add(benchmarkYAxis);
+
+        // Create legend modifier for benchmark chart
+        const benchmarkLegendModifier = new SC.LegendModifier({
+            placementDivId: benchmarkLegendDivId,
+            orientation: SC.ELegendOrientation.Horizontal,
+            showSeriesMarkers: true,
+            showCheckboxes: false,
+        });
+
+        // Override getLegendItemHTML for benchmark legend
+        benchmarkLegendModifier.sciChartLegend.getLegendItemHTML = (orientation, showCheckboxes, showSeriesMarkers, item) => {
+            const display = orientation === SC.ELegendOrientation.Vertical ? "flex" : "inline-flex";
+            let str = `<span class="scichart__legend-item" style="display: ${display}; align-items: center; margin-right: 8px; padding: 0 4px; white-space: nowrap; gap: 5px; font-size: 12px; font-weight: bold;">`;
+
+            if (showCheckboxes) {
+                const checked = item.checked ? "checked" : "";
+                str += `<input ${checked} type="checkbox" id="${item.id}">`;
+            }
+
+            if (showSeriesMarkers) {
+                // Simple colored square for benchmark legend
+                str += `<svg xmlns="http://www.w3.org/2000/svg" for="${item.id}" style="width: 12px; height: 12px;" viewBox="0 0 24 24">
+                    <rect x="5" y="5" width="14" height="14" fill="${item.color}" stroke="${item.color}" stroke-width="1" rx="2" />
+                </svg>`;
+            }
+
+            str += `<label for="${item.id}" style="font-size: 12px; font-weight: bold;">${item.name}</label></span>`;
+            return str;
+        };
+
+        benchmarkSurface.chartModifiers.add(benchmarkLegendModifier);
+
+        benchmarkSurface.chartModifiers.add(
+            new SC.CursorModifier({
+                showTooltip: true,
+                snapToDataPoint: true,
+                hitTestRadius: 10
+            })
+        );
+
+        benchmarkSurfaceMap.set(testKey, {
+            surface: benchmarkSurface,
+            wasmContext: benchmarkWasmContext,
+        });
     }
 }
 
@@ -645,6 +754,13 @@ function updateAllChartSeries() {
             updateLineSeries(surface, wasmContext, seriesDataMap);
         }
     }
+
+    // Update benchmark charts
+    for (const [testKey, info] of benchmarkSurfaceMap) {
+        const testName = E_TEST_NAME[testKey];
+        const { surface, wasmContext } = info;
+        updateBenchmarkChart(testName, grouped, surface, wasmContext);
+    }
 }
 
 function updateLineSeries(surface, wasmContext, seriesDataMap) {
@@ -756,4 +872,148 @@ function updateColumnSeries(surface, wasmContext, seriesDataMap) {
     }
 
     surface.renderableSeries.add(collection);
+}
+
+// ──────────────────────────────────────────────
+// Benchmark chart update
+// ──────────────────────────────────────────────
+
+function updateBenchmarkChart(testName, grouped, surface, wasmContext) {
+    surface.renderableSeries.clear();
+
+    const testData = grouped[testName] || {};
+
+    // Build result set label map
+    const rsLabelMap = {};
+    allResultSetsData.forEach((rs) => {
+        rsLabelMap[rs.id] = rs.label;
+    });
+    const multipleResultSets = checkedResultSets.size > 1 || resultSetIds.length > 1;
+
+    // Collect all parameter combinations from this test case
+    const allParamCombos = [];
+    const paramSet = new Set();
+
+    Object.values(testData).forEach((libResults) => {
+        Object.values(libResults).forEach((results) => {
+            if (results && Array.isArray(results)) {
+                results.forEach((result) => {
+                    if (result.config) {
+                        const paramKey = JSON.stringify({
+                            points: result.config.points || 0,
+                            series: result.config.series || 1,
+                            charts: result.config.charts || 1,
+                        });
+                        paramSet.add(paramKey);
+                    }
+                });
+            }
+        });
+    });
+
+    paramSet.forEach((paramKey) => {
+        allParamCombos.push(JSON.parse(paramKey));
+    });
+
+    // Calculate benchmark scores for each (resultSet, library) combination
+    const benchmarkScores = [];
+
+    Object.entries(testData).forEach(([rsId, libResults]) => {
+        if (!checkedResultSets.has(rsId)) return;
+
+        Object.entries(libResults).forEach(([libName, results]) => {
+            const shortName = getShortLibName(libName);
+            if (!checkedLibraries.has(shortName)) return;
+
+            // Calculate benchmark score for this library
+            const score = calculateBenchmarkScore({ test: results }, allParamCombos);
+
+            if (score > 0) {
+                const rsLabel = rsLabelMap[rsId] || rsId;
+                const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
+                const color = getColorForLibrary(libName);
+
+                benchmarkScores.push({
+                    rsId,
+                    rsLabel,
+                    libName,
+                    shortName,
+                    name,
+                    score,
+                    color,
+                });
+            }
+        });
+    });
+
+    if (benchmarkScores.length === 0) return;
+
+    // Sort by score descending
+    benchmarkScores.sort((a, b) => b.score - a.score);
+
+    // Update X-axis labels to show library names (X-axis appears on left after rotation)
+    const xAxis = surface.xAxes.get(0);
+    const libraryNames = benchmarkScores.map(s => s.name);
+    xAxis.labelProvider = new SC.TextLabelProvider({
+        labels: libraryNames,
+    });
+
+    // Create a SINGLE column series with all data points
+    // With isRotatedChart: true, X becomes vertical (categories) and Y becomes horizontal (values)
+    const xValues = benchmarkScores.map((_, index) => index); // [0, 1, 2, 3, ...]
+    const yValues = benchmarkScores.map(entry => entry.score);
+
+    const dataSeries = new SC.XyDataSeries(wasmContext, {
+        xValues,
+        yValues,
+        dataSeriesName: 'Benchmark Scores',
+    });
+
+    // Convert hex colors to ARGB integers
+    const colorIntegers = benchmarkScores.map(entry => SciChart.parseColorToUIntArgb(entry.color));
+
+    const columnSeries = new SC.FastColumnRenderableSeries(wasmContext, {
+        dataSeries,
+        fill: '#4083E8', // Default fill (will be overridden by palette provider)
+        stroke: '#4083E8', // Default stroke (will be overridden by palette provider)
+        strokeThickness: 1,
+        opacity: 0.85,
+        cornerRadius: 5, // Rounded corners
+        dataPointWidth: 0.7,
+        paletteProvider: new BenchmarkPaletteProvider(colorIntegers),
+    });
+
+    surface.renderableSeries.add(columnSeries);
+}
+
+// ──────────────────────────────────────────────
+// Custom PaletteProvider for per-column coloring
+// ──────────────────────────────────────────────
+
+class BenchmarkPaletteProvider {
+    constructor(colorIntegers) {
+        this.colorIntegers = colorIntegers;
+    }
+
+    onAttached(parentSeries) {
+        this.parentSeries = parentSeries;
+    }
+
+    onDetached() {
+        this.parentSeries = undefined;
+    }
+
+    overrideFillArgb(xValue, yValue, index, opacity, metadata) {
+        if (index >= 0 && index < this.colorIntegers.length) {
+            return this.colorIntegers[index];
+        }
+        return undefined; // Use default
+    }
+
+    overrideStrokeArgb(xValue, yValue, index, opacity, metadata) {
+        if (index >= 0 && index < this.colorIntegers.length) {
+            return this.colorIntegers[index];
+        }
+        return undefined; // Use default
+    }
 }
