@@ -39,6 +39,7 @@ async function loadTestSupport(chartName) {
         'Apache ECharts': 'echarts/echarts_tests.js',
         uPlot: 'uPlot/uPlot_tests.js',
         ChartGPU: 'chartgpu/chartgpu_tests.js',
+       'Lcjs': 'lcjsv4/lcjs_tests.js'
     };
 
     const scriptPath = scriptPaths[chartName];

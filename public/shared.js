@@ -60,6 +60,10 @@ function generateCharts() {
         name: 'ChartGPU',
         path: 'chartgpu/chartgpu.html',
     });
+    charts.push({
+        name: 'Lcjs',
+        path: 'lcjsv4/lcjs.html'
+    });
     return charts;
 }
 
