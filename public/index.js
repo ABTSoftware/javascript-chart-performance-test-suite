@@ -305,6 +305,272 @@ async function handleDeleteResultSet(rsId, label) {
 }
 
 // ──────────────────────────────────────────────
+// Benchmark Score Calculation
+// ──────────────────────────────────────────────
+
+function calculateBenchmarkScore(testResults, allParamCombos) {
+    let totalWeightedFPS = 0;
+    let totalWeight = 0;
+
+    // If no expected parameter combinations provided, extract from results
+    let expectedParams = allParamCombos;
+    if (!expectedParams || expectedParams.length === 0) {
+        const paramSet = new Set();
+        Object.values(testResults).forEach((results) => {
+            if (results && Array.isArray(results)) {
+                results.forEach((result) => {
+                    if (result.config) {
+                        const params = {
+                            points: result.config.points || 0,
+                            series: result.config.series || 1,
+                            charts: result.config.charts || 1,
+                        };
+                        paramSet.add(JSON.stringify(params));
+                    }
+                });
+            }
+        });
+        expectedParams = Array.from(paramSet).map((s) => JSON.parse(s));
+    }
+
+    // For each expected parameter combination, check if library has a result
+    expectedParams.forEach((expectedParam) => {
+        let fps = 0; // Default to 0 if test failed, skipped, or errored
+
+        Object.values(testResults).forEach((results) => {
+            if (results && Array.isArray(results)) {
+                const matchingResult = results.find((result) => {
+                    if (!result.config) return false;
+                    return (
+                        (result.config.points || 0) === expectedParam.points &&
+                        (result.config.series || 1) === expectedParam.series &&
+                        (result.config.charts || 1) === expectedParam.charts
+                    );
+                });
+
+                if (matchingResult) {
+                    // Only use FPS if test succeeded (not errored/skipped)
+                    if (!matchingResult.isErrored && matchingResult.averageFPS && matchingResult.averageFPS > 0) {
+                        fps = matchingResult.averageFPS;
+                    }
+                    // Otherwise fps stays 0 (test failed/errored/skipped)
+                }
+                // If no matching result found, fps stays 0 (test not run)
+            }
+        });
+
+        // Calculate complexity and weight for this parameter combination
+        const complexity = expectedParam.points * expectedParam.series * expectedParam.charts;
+        const weight = Math.log10(complexity + 1);
+
+        totalWeightedFPS += fps * weight;
+        totalWeight += weight;
+    });
+
+    // Return weighted average
+    return totalWeight > 0 ? totalWeightedFPS / totalWeight : 0;
+}
+
+function createChartBenchTable(testName, testResults, showAllMode, resultSetMap) {
+    const benchScores = [];
+
+    // Collect ALL parameter combinations from this test case
+    const allParamCombos = [];
+    const paramSet = new Set();
+
+    if (showAllMode) {
+        Object.values(testResults).forEach((libResults) => {
+            Object.values(libResults).forEach((results) => {
+                if (results && Array.isArray(results)) {
+                    results.forEach((result) => {
+                        if (result.config) {
+                            const paramKey = JSON.stringify({
+                                points: result.config.points || 0,
+                                series: result.config.series || 1,
+                                charts: result.config.charts || 1,
+                            });
+                            paramSet.add(paramKey);
+                        }
+                    });
+                }
+            });
+        });
+    } else {
+        Object.values(testResults).forEach((results) => {
+            if (results && Array.isArray(results)) {
+                results.forEach((result) => {
+                    if (result.config) {
+                        const paramKey = JSON.stringify({
+                            points: result.config.points || 0,
+                            series: result.config.series || 1,
+                            charts: result.config.charts || 1,
+                        });
+                        paramSet.add(paramKey);
+                    }
+                });
+            }
+        });
+    }
+
+    // Convert to array
+    paramSet.forEach((paramKey) => {
+        allParamCombos.push(JSON.parse(paramKey));
+    });
+
+    if (showAllMode) {
+        // Multiple result sets: calculate score for each (resultSet, library) combination
+        Object.entries(testResults).forEach(([rsId, libResults]) => {
+            Object.entries(libResults).forEach(([libName, results]) => {
+                const score = calculateBenchmarkScore({ test: results }, allParamCombos);
+
+                benchScores.push({
+                    rsId,
+                    rsLabel: resultSetMap[rsId] || rsId,
+                    libName: libName, // Use full library name including version
+                    score,
+                });
+            });
+        });
+    } else {
+        // Single result set: one score per library
+        Object.entries(testResults).forEach(([libName, results]) => {
+            const score = calculateBenchmarkScore({ test: results }, allParamCombos);
+
+            benchScores.push({
+                libName: libName, // Use full library name including version
+                score,
+            });
+        });
+    }
+
+    // If no scores at all, return null
+    if (benchScores.length === 0) return null;
+
+    // Sort by score descending (0 scores will appear at bottom)
+    benchScores.sort((a, b) => b.score - a.score);
+
+    // Create benchmark section
+    const benchSection = document.createElement('div');
+    benchSection.style.marginTop = '15px';
+    benchSection.style.marginBottom = '10px';
+
+    const benchHeading = document.createElement('h4');
+    benchHeading.style.display = 'inline-flex';
+    benchHeading.style.alignItems = 'center';
+    benchHeading.style.gap = '8px';
+    benchHeading.style.marginBottom = '8px';
+    benchHeading.style.fontSize = '16px';
+    benchHeading.textContent = `Chart Bench: ${testName}`;
+
+    // Add tooltip icon
+    const tooltipIcon = document.createElement('span');
+    tooltipIcon.textContent = 'ⓘ';
+    tooltipIcon.style.cursor = 'help';
+    tooltipIcon.style.fontSize = '14px';
+    tooltipIcon.style.color = '#007bff';
+    tooltipIcon.title =
+        'Benchmark Score Calculation:\n\n' +
+        'Score = Σ(FPS × weight) / Σ(weight)\n\n' +
+        'where weight = log₁₀(points × series × charts)\n\n' +
+        'Higher scores indicate better performance on complex tests.';
+
+    benchHeading.appendChild(tooltipIcon);
+    benchSection.appendChild(benchHeading);
+
+    // Create benchmark table
+    const benchTable = document.createElement('table');
+    benchTable.style.borderCollapse = 'collapse';
+    benchTable.style.width = 'auto';
+    benchTable.style.maxWidth = '500px';
+    benchTable.style.fontSize = '14px';
+
+    // Header
+    const benchHeaderRow = benchTable.insertRow();
+    benchHeaderRow.style.backgroundColor = '#f0f0f0';
+    benchHeaderRow.style.fontWeight = 'bold';
+
+    const rankHeader = benchHeaderRow.insertCell();
+    rankHeader.textContent = 'Rank';
+    rankHeader.style.border = '1px solid #ccc';
+    rankHeader.style.padding = '6px 10px';
+    rankHeader.style.textAlign = 'center';
+
+    const libHeader = benchHeaderRow.insertCell();
+    libHeader.textContent = 'Library';
+    libHeader.style.border = '1px solid #ccc';
+    libHeader.style.padding = '6px 10px';
+    libHeader.style.textAlign = 'left';
+
+    if (showAllMode && benchScores.some((e) => e.rsLabel)) {
+        const rsHeader = benchHeaderRow.insertCell();
+        rsHeader.textContent = 'Result Set';
+        rsHeader.style.border = '1px solid #ccc';
+        rsHeader.style.padding = '6px 10px';
+        rsHeader.style.textAlign = 'left';
+    }
+
+    const scoreHeader = benchHeaderRow.insertCell();
+    scoreHeader.textContent = 'Score';
+    scoreHeader.style.border = '1px solid #ccc';
+    scoreHeader.style.padding = '6px 10px';
+    scoreHeader.style.textAlign = 'center';
+
+    // Data rows
+    const maxScore = benchScores[0].score;
+
+    benchScores.forEach((entry, index) => {
+        const row = benchTable.insertRow();
+
+        // Rank
+        const rankCell = row.insertCell();
+        rankCell.textContent = index + 1;
+        rankCell.style.border = '1px solid #ccc';
+        rankCell.style.padding = '6px 10px';
+        rankCell.style.textAlign = 'center';
+        rankCell.style.fontWeight = 'bold';
+
+        // Library name
+        const libCell = row.insertCell();
+        libCell.textContent = entry.libName;
+        libCell.style.border = '1px solid #ccc';
+        libCell.style.padding = '6px 10px';
+        libCell.style.fontWeight = 'bold';
+
+        // Result Set (if multiple)
+        if (showAllMode && benchScores.some((e) => e.rsLabel)) {
+            const rsCell = row.insertCell();
+            rsCell.textContent = entry.rsLabel || '';
+            rsCell.style.border = '1px solid #ccc';
+            rsCell.style.padding = '6px 10px';
+        }
+
+        // Score
+        const scoreCell = row.insertCell();
+        scoreCell.textContent = Math.round(entry.score);
+        scoreCell.style.border = '1px solid #ccc';
+        scoreCell.style.padding = '6px 10px';
+        scoreCell.style.textAlign = 'center';
+        scoreCell.style.fontWeight = 'bold';
+
+        // Color coding based on score
+        const scoreRatio = entry.score / maxScore;
+        if (scoreRatio >= 0.9) {
+            scoreCell.style.backgroundColor = '#d4edda';
+            scoreCell.style.color = '#155724';
+        } else if (scoreRatio >= 0.7) {
+            scoreCell.style.backgroundColor = '#fff3cd';
+            scoreCell.style.color = '#856404';
+        } else {
+            scoreCell.style.backgroundColor = '#f8d7da';
+            scoreCell.style.color = '#721c24';
+        }
+    });
+
+    benchSection.appendChild(benchTable);
+    return benchSection;
+}
+
+// ──────────────────────────────────────────────
 // Results section
 // ──────────────────────────────────────────────
 
@@ -436,6 +702,12 @@ async function buildResultsSection() {
             }
             table.classList.add('results-ready');
             section.appendChild(table);
+
+            // Add Chart Bench for this test case
+            const benchSection = createChartBenchTable(testName, testResults, showAllMode, resultSetMap);
+            if (benchSection) {
+                section.appendChild(benchSection);
+            }
 
             resultsContainer.appendChild(section);
         });
