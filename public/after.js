@@ -445,7 +445,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
             }
         }
 
-        if (G_RESULT[i].benchmarkFPS < 2) {
+        if (G_RESULT[i].benchmarkFPS < 1) {
             console.warn('Some tests were skipped because of FPS lower than 2');
             // Mark remaining tests as skipped
             for (let j = i + 1; j < tests.length; j++) {
