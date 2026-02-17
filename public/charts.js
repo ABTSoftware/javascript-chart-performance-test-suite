@@ -608,7 +608,7 @@ async function createAllSurfaces(container) {
             new SC.CursorModifier({
                 showTooltip: true,
                 snapToDataPoint: true,
-                hitTestRadius: 10
+                hitTestRadius: 0
             })
         );
 
@@ -918,33 +918,41 @@ function updateBenchmarkChart(testName, grouped, surface, wasmContext) {
     });
 
     // Calculate benchmark scores for each (resultSet, library) combination
+    // Include ALL checked libraries, even those with no results (score = 0)
     const benchmarkScores = [];
 
-    Object.entries(testData).forEach(([rsId, libResults]) => {
-        if (!checkedResultSets.has(rsId)) return;
+    // Iterate over all checked result sets and libraries
+    checkedResultSets.forEach(rsId => {
+        checkedLibraries.forEach(shortName => {
+            const rsLabel = rsLabelMap[rsId] || rsId;
+            const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
+            const color = getColorForLibrary(shortName);
 
-        Object.entries(libResults).forEach(([libName, results]) => {
-            const shortName = getShortLibName(libName);
-            if (!checkedLibraries.has(shortName)) return;
+            // Check if results exist for this combination
+            const libResults = testData[rsId];
+            let score = 0;
 
-            // Calculate benchmark score for this library
-            const score = calculateBenchmarkScore({ test: results }, allParamCombos);
+            if (libResults) {
+                // Find the full library name (might have version suffix)
+                const libName = Object.keys(libResults).find(key => getShortLibName(key) === shortName);
 
-            if (score > 0) {
-                const rsLabel = rsLabelMap[rsId] || rsId;
-                const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
-                const color = getColorForLibrary(libName);
-
-                benchmarkScores.push({
-                    rsId,
-                    rsLabel,
-                    libName,
-                    shortName,
-                    name,
-                    score,
-                    color,
-                });
+                if (libName && libResults[libName]) {
+                    const results = libResults[libName];
+                    // Calculate benchmark score for this library
+                    score = calculateBenchmarkScore({ test: results }, allParamCombos);
+                }
             }
+
+            // Include all scores, even 0 (for tests that haven't run, are unsupported, or crashed)
+            benchmarkScores.push({
+                rsId,
+                rsLabel,
+                libName: shortName,
+                shortName,
+                name,
+                score,
+                color,
+            });
         });
     });
 

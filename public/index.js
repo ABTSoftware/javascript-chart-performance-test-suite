@@ -357,25 +357,50 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
 
     if (showAllMode) {
         // Multiple result sets: calculate score for each (resultSet, library) combination
-        Object.entries(testResults).forEach(([rsId, libResults]) => {
-            Object.entries(libResults).forEach(([libName, results]) => {
-                const score = calculateBenchmarkScore({ test: results }, allParamCombos);
+        // Include ALL checked libraries, even those with no results (score = 0)
+        checkedResultSets.forEach(rsId => {
+            checkedLibraries.forEach(shortLib => {
+                let score = 0;
+                let fullLibName = shortLib;
+
+                const libResults = testResults[rsId];
+                if (libResults) {
+                    // Find the full library name (might have version suffix)
+                    const libName = Object.keys(libResults).find(key => getShortLibName(key) === shortLib);
+
+                    if (libName && libResults[libName]) {
+                        const results = libResults[libName];
+                        score = calculateBenchmarkScore({ test: results }, allParamCombos);
+                        fullLibName = libName;
+                    }
+                }
 
                 benchScores.push({
                     rsId,
                     rsLabel: resultSetMap[rsId] || rsId,
-                    libName: libName, // Use full library name including version
+                    libName: fullLibName, // Use full library name including version
                     score,
                 });
             });
         });
     } else {
         // Single result set: one score per library
-        Object.entries(testResults).forEach(([libName, results]) => {
-            const score = calculateBenchmarkScore({ test: results }, allParamCombos);
+        // Include ALL checked libraries, even those with no results (score = 0)
+        checkedLibraries.forEach(shortLib => {
+            let score = 0;
+            let fullLibName = shortLib;
+
+            // Find the full library name in testResults
+            const libName = Object.keys(testResults).find(key => getShortLibName(key) === shortLib);
+
+            if (libName && testResults[libName]) {
+                const results = testResults[libName];
+                score = calculateBenchmarkScore({ test: results }, allParamCombos);
+                fullLibName = libName;
+            }
 
             benchScores.push({
-                libName: libName, // Use full library name including version
+                libName: fullLibName, // Use full library name including version
                 score,
             });
         });
@@ -463,7 +488,7 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
     scoreHeader.style.textAlign = 'center';
 
     // Data rows
-    const maxScore = benchScores[0].score;
+    const maxScore = benchScores.length > 0 ? benchScores[0].score : 0;
 
     benchScores.forEach((entry, index) => {
         const row = benchTable.insertRow();
@@ -499,15 +524,21 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
         scoreCell.style.textAlign = 'center';
         scoreCell.style.fontWeight = 'bold';
 
-        // Color coding based on score
-        const scoreRatio = entry.score / maxScore;
-        if (scoreRatio >= 0.9) {
-            scoreCell.style.backgroundColor = '#d4edda';
-            scoreCell.style.color = '#155724';
-        } else if (scoreRatio >= 0.7) {
-            scoreCell.style.backgroundColor = '#fff3cd';
-            scoreCell.style.color = '#856404';
+        // Color coding based on score (handle maxScore = 0 case)
+        if (maxScore > 0) {
+            const scoreRatio = entry.score / maxScore;
+            if (scoreRatio >= 0.9) {
+                scoreCell.style.backgroundColor = '#d4edda';
+                scoreCell.style.color = '#155724';
+            } else if (scoreRatio >= 0.7) {
+                scoreCell.style.backgroundColor = '#fff3cd';
+                scoreCell.style.color = '#856404';
+            } else {
+                scoreCell.style.backgroundColor = '#f8d7da';
+                scoreCell.style.color = '#721c24';
+            }
         } else {
+            // All scores are 0 - use neutral color
             scoreCell.style.backgroundColor = '#f8d7da';
             scoreCell.style.color = '#721c24';
         }
