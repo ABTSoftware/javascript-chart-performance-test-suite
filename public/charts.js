@@ -555,6 +555,7 @@ async function createAllSurfaces(container) {
             axisTitle: 'Library',
             axisTitleStyle: { fontSize: 12 },
             labelStyle: { fontSize: 10 },
+            drawMinorGridLines: false,
         });
         benchmarkSurface.xAxes.add(benchmarkXAxis);
 
@@ -565,6 +566,7 @@ async function createAllSurfaces(container) {
             axisTitleStyle: { fontSize: 12 },
             labelStyle: { fontSize: 10 },
             growBy: new SC.NumberRange(0, 0.1),
+            drawMinorGridLines: false,
         });
         benchmarkYAxis.visibleRangeChanged.subscribe((data) => {
             benchmarkYAxis.visibleRangeProperty = new SC.NumberRange(0, data.visibleRange.max);
