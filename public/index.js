@@ -310,9 +310,6 @@ async function handleDeleteResultSet(rsId, label) {
 // ──────────────────────────────────────────────
 
 function calculateBenchmarkScore(testResults, allParamCombos) {
-    let totalWeightedFPS = 0;
-    let totalWeight = 0;
-
     // If no expected parameter combinations provided, extract from results
     let expectedParams = allParamCombos;
     if (!expectedParams || expectedParams.length === 0) {
@@ -334,9 +331,55 @@ function calculateBenchmarkScore(testResults, allParamCombos) {
         expectedParams = Array.from(paramSet).map((s) => JSON.parse(s));
     }
 
-    // For each expected parameter combination, check if library has a result
+    // First pass: collect all metric values to find min/max for normalization
+    const metrics = { fps: [], frames: [], memory: [], init: [] };
+
     expectedParams.forEach((expectedParam) => {
-        let fps = 0; // Default to 0 if test failed, skipped, or errored
+        Object.values(testResults).forEach((results) => {
+            if (results && Array.isArray(results)) {
+                const matchingResult = results.find((result) => {
+                    if (!result.config) return false;
+                    return (
+                        (result.config.points || 0) === expectedParam.points &&
+                        (result.config.series || 1) === expectedParam.series &&
+                        (result.config.charts || 1) === expectedParam.charts
+                    );
+                });
+
+                if (matchingResult && !matchingResult.isErrored) {
+                    if (matchingResult.averageFPS && matchingResult.averageFPS > 0) {
+                        metrics.fps.push(matchingResult.averageFPS);
+                    }
+                    if (matchingResult.numberOfFrames && matchingResult.numberOfFrames > 0) {
+                        metrics.frames.push(matchingResult.numberOfFrames);
+                    }
+                    if (matchingResult.memory && matchingResult.memory > 0) {
+                        metrics.memory.push(matchingResult.memory);
+                    }
+                    if (matchingResult.benchmarkTimeFirstFrame && matchingResult.benchmarkTimeFirstFrame > 0) {
+                        metrics.init.push(matchingResult.benchmarkTimeFirstFrame);
+                    }
+                }
+            }
+        });
+    });
+
+    // Calculate min/max for each metric using power transformation for FPS and frames
+    // Power transformation (^1.5) amplifies performance differences exponentially
+    // 42 FPS vs 4.77 FPS: 272 vs 10.4 = 26x difference (captures the order of magnitude!)
+    const maxPowerFps = metrics.fps.length > 0 ? Math.pow(Math.max(...metrics.fps), 1.5) : 1;
+    const maxPowerFrames = metrics.frames.length > 0 ? Math.pow(Math.max(...metrics.frames), 1.5) : 1;
+    const minMemory = metrics.memory.length > 0 ? Math.min(...metrics.memory) : 0;
+    const maxMemory = metrics.memory.length > 0 ? Math.max(...metrics.memory) : 1;
+    const minInit = metrics.init.length > 0 ? Math.min(...metrics.init) : 0;
+    const maxInit = metrics.init.length > 0 ? Math.max(...metrics.init) : 1;
+
+    // Second pass: calculate normalized composite scores
+    let totalWeightedScore = 0;
+    let totalWeight = 0;
+
+    expectedParams.forEach((expectedParam) => {
+        let compositeScore = 0; // Default to 0 if test failed, skipped, or errored
 
         Object.values(testResults).forEach((results) => {
             if (results && Array.isArray(results)) {
@@ -349,27 +392,50 @@ function calculateBenchmarkScore(testResults, allParamCombos) {
                     );
                 });
 
-                if (matchingResult) {
-                    // Only use FPS if test succeeded (not errored/skipped)
-                    if (!matchingResult.isErrored && matchingResult.averageFPS && matchingResult.averageFPS > 0) {
-                        fps = matchingResult.averageFPS;
-                    }
-                    // Otherwise fps stays 0 (test failed/errored/skipped)
+                if (matchingResult && !matchingResult.isErrored) {
+                    // Normalize each metric to 0-1 range (higher is better)
+                    // Use power transformation (^1.5) for FPS and frames to amplify performance differences
+                    // This captures exponential performance gains without over-compressing like log scale
+                    const fpsNorm = maxPowerFps > 0 && matchingResult.averageFPS
+                        ? Math.pow(matchingResult.averageFPS, 1.5) / maxPowerFps
+                        : 0;
+
+                    const framesNorm = maxPowerFrames > 0 && matchingResult.numberOfFrames
+                        ? Math.pow(matchingResult.numberOfFrames, 1.5) / maxPowerFrames
+                        : 0;
+
+                    const memoryNorm = (maxMemory > minMemory && matchingResult.memory)
+                        ? 1 - ((matchingResult.memory - minMemory) / (maxMemory - minMemory))
+                        : 1;
+
+                    const initNorm = (maxInit > minInit && matchingResult.benchmarkTimeFirstFrame)
+                        ? 1 - ((matchingResult.benchmarkTimeFirstFrame - minInit) / (maxInit - minInit))
+                        : 1;
+
+                    // Weighted composite score (scale to 0-100)
+                    compositeScore = (
+                        fpsNorm * 0.65 +      // 65% weight on FPS (primary performance metric)
+                        initNorm * 0.20 +     // 20% weight on init time
+                        framesNorm * 0.10 +   // 10% weight on total frames
+                        memoryNorm * 0.05     // 5% weight on memory efficiency (least critical)
+                    ) * 100;
                 }
-                // If no matching result found, fps stays 0 (test not run)
             }
         });
 
         // Calculate complexity and weight for this parameter combination
+        // Use aggressive polynomial weighting to make complex tests count exponentially more
+        // This ensures that rendering 16M points (16000x16000 heatmap) counts FAR more than 10K points (100x100)
         const complexity = expectedParam.points * expectedParam.series * expectedParam.charts;
-        const weight = Math.log10(complexity + 1);
+        const logComplexity = Math.log10(complexity + 1);
+        const weight = Math.pow(logComplexity, 3.5); // Polynomial: log^3.5 creates exponential differentiation
 
-        totalWeightedFPS += fps * weight;
+        totalWeightedScore += compositeScore * weight;
         totalWeight += weight;
     });
 
     // Return weighted average
-    return totalWeight > 0 ? totalWeightedFPS / totalWeight : 0;
+    return totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
 }
 
 function createChartBenchTable(testName, testResults, showAllMode, resultSetMap) {
@@ -471,9 +537,18 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
     tooltipIcon.style.color = '#007bff';
     tooltipIcon.title =
         'Benchmark Score Calculation:\n\n' +
-        'Score = Σ(FPS × weight) / Σ(weight)\n\n' +
-        'where weight = log₁₀(points × series × charts)\n\n' +
-        'Higher scores indicate better performance on complex tests.';
+        'Score = Σ(composite × weight) / Σ(weight)\n\n' +
+        'Composite = (FPS×65% + InitTime×20% + Frames×10% + Memory×5%) × 100\n\n' +
+        'Metrics use power transformation to amplify performance differences:\n' +
+        '  • FPS^1.5: Exponentially rewards higher FPS\n' +
+        '    (42 vs 4.77 FPS → 272 vs 10.4 = 26x scoring difference)\n' +
+        '  • Frames^1.5: Higher frame counts exponentially better\n' +
+        '  • Init Time: Linear scale (lower is better)\n' +
+        '  • Memory: Linear scale (lower is better)\n\n' +
+        'Weight = [log₁₀(points × series × charts)]^3.5\n\n' +
+        'Aggressive polynomial weighting ensures complex tests contribute\n' +
+        'exponentially more (16M points >> 1K points).\n' +
+        'Failed/skipped tests receive 0 score but full weight penalty.';
 
     benchHeading.appendChild(tooltipIcon);
     benchSection.appendChild(benchHeading);
