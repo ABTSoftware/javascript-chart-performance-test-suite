@@ -2,8 +2,10 @@
 
 const lightAxisOptions = { 
     drawMinorGridLines: false, 
-    drawMinorTicks: false, 
-    drawMajorTicks: false, 
+    drawMinorTicks: false,
+    drawMinorTickLines: false,
+    drawMajorTicks: false,
+    drawMajorTickLines: false,
     drawMajorBands: false,
     allowFastMath: true
 };
