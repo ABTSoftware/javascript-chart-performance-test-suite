@@ -424,12 +424,11 @@ function calculateBenchmarkScore(testResults, allParamCombos) {
         });
 
         // Calculate complexity and weight for this parameter combination
-        // Use very aggressive polynomial weighting to make complex tests count exponentially more
-        // When libraries max out at monitor refresh rate (240 FPS) on easy tests, the differentiation
-        // happens at high complexity - these tests must dominate the score
+        // Use aggressive polynomial weighting to make complex tests count exponentially more
+        // This ensures that rendering 16M points (16000x16000 heatmap) counts FAR more than 10K points (100x100)
         const complexity = expectedParam.points * expectedParam.series * expectedParam.charts;
         const logComplexity = Math.log10(complexity + 1);
-        const weight = Math.pow(logComplexity, 4.5); // Polynomial: log^4.5 creates exponential differentiation as the test difficulty increases
+        const weight = Math.pow(logComplexity, 3.5); // Polynomial: log^3.5 creates exponential differentiation
 
         totalWeightedScore += compositeScore * weight;
         totalWeight += weight;
@@ -546,11 +545,9 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
         '  • Frames^1.5: Higher frame counts exponentially better\n' +
         '  • Init Time: Linear scale (lower is better)\n' +
         '  • Memory: Linear scale (lower is better)\n\n' +
-        'Weight = [log₁₀(points × series × charts)]^4.5\n\n' +
-        'Very aggressive polynomial weighting ensures complex tests dominate:\n' +
-        '  • 4M points gets 585x more weight than 100 points\n' +
-        '  • When libraries max out at 240 FPS on easy tests, the real\n' +
-        '    differentiation at high complexity determines the final score\n' +
+        'Weight = [log₁₀(points × series × charts)]^3.5\n\n' +
+        'Aggressive polynomial weighting ensures complex tests contribute\n' +
+        'exponentially more (16M points >> 1K points).\n' +
         'Failed/skipped tests receive 0 score but full weight penalty.';
 
     benchHeading.appendChild(tooltipIcon);
