@@ -23,7 +23,7 @@ function getMetricLabel() {
 }
 
 function getMetricValue(result) {
-    if (!result) return null;
+    if (!result || result.isErrored) return null;
     switch (selectedMetric) {
         case 'fps': return result.averageFPS;
         case 'memory': return result.memory;
@@ -1011,6 +1011,11 @@ function createResultsTable(testName, testResults) {
     const minMetric = allMetricValues.length > 0 ? Math.min(...allMetricValues) : 0;
     const maxMetric = allMetricValues.length > 0 ? Math.max(...allMetricValues) : 100;
 
+    // Debug logging for metric calculation
+    if (selectedMetric === 'initialization') {
+        console.log(`[${testName}] Init Time - Min: ${minMetric.toFixed(2)}, Max: ${maxMetric.toFixed(2)}, Values count: ${allMetricValues.length}`);
+    }
+
     // Create data rows
     sortedParams.forEach((paramStr) => {
         const row = table.insertRow();
@@ -1170,6 +1175,11 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
     const minMetric = allMetricValues.length > 0 ? Math.min(...allMetricValues) : 0;
     const maxMetric = allMetricValues.length > 0 ? Math.max(...allMetricValues) : 100;
 
+    // Debug logging for metric calculation (AllMode)
+    if (selectedMetric === 'initialization') {
+        console.log(`[${testName} - AllMode] Init Time - Min: ${minMetric.toFixed(2)}, Max: ${maxMetric.toFixed(2)}, Values count: ${allMetricValues.length}`);
+    }
+
     // Data rows
     sortedParams.forEach((paramStr) => {
         const row = table.insertRow();
@@ -1234,25 +1244,35 @@ function getShortLibName(libName) {
 function getFpsHeatmapColor(value, minValue, maxValue) {
     if (value === null || value === undefined) return 'transparent';
 
-    const higherIsBetter = isMetricHigherBetter();
+    // Debug logging for high init time values
+    if (selectedMetric === 'initialization' && value > 3000) {
+        console.log(`High init time: ${value}, min: ${minValue}, max: ${maxValue}`);
+    }
 
-    // Normalise value to 0-1 range
+    // Normalise value to 0-1 range based on metric type
     let normalised;
-    if (maxValue === minValue) {
-        normalised = 0.5;
-    } else {
-        normalised = (value - minValue) / (maxValue - minValue);
-    }
 
-    // For metrics where lower is better, invert the normalisation
-    if (!higherIsBetter) {
-        normalised = 1 - normalised;
-    }
-
-    // Special handling for FPS to cap at 60
     if (selectedMetric === 'fps') {
-        const targetMaxFps = 60;
-        normalised = Math.min(value / targetMaxFps, 1);
+        // FPS: absolute scale 0 (red) to 60 (green)
+        normalised = Math.min(Math.max(value / 60, 0), 1);
+    } else if (selectedMetric === 'memory' || selectedMetric === 'initialization') {
+        // Memory and Init Time: lower is better
+        // min in table (0 or lowest) = green (1), max in table = red (0)
+        if (maxValue === minValue) {
+            normalised = 0.5;
+        } else {
+            normalised = 1 - ((value - minValue) / (maxValue - minValue));
+        }
+    } else if (selectedMetric === 'frames') {
+        // Total Frames: higher is better
+        // min in table (0 or lowest) = red (0), max in table = green (1)
+        if (maxValue === minValue) {
+            normalised = 0.5;
+        } else {
+            normalised = (value - minValue) / (maxValue - minValue);
+        }
+    } else {
+        normalised = 0.5; // Default fallback
     }
 
     // Create gradient: red (bad) -> orange (medium) -> green (good)
