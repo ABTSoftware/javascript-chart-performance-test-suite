@@ -5,6 +5,50 @@ let allResultsData = [];
 let allResultSetsData = [];
 let checkedResultSets = new Set();
 let checkedLibraries = new Set();
+// Metric selection state
+let selectedMetric = 'fps'; // 'fps', 'memory', 'initialization', 'frames'
+
+// ──────────────────────────────────────────────
+// Metric helper functions
+// ──────────────────────────────────────────────
+
+function getMetricLabel() {
+    switch (selectedMetric) {
+        case 'fps': return 'Avg FPS';
+        case 'memory': return 'Memory (MB)';
+        case 'initialization': return 'Init Time (ms)';
+        case 'frames': return 'Total Frames';
+        default: return 'Avg FPS';
+    }
+}
+
+function getMetricValue(result) {
+    if (!result) return null;
+    switch (selectedMetric) {
+        case 'fps': return result.averageFPS;
+        case 'memory': return result.memory;
+        case 'initialization': return result.benchmarkTimeFirstFrame;
+        case 'frames': return result.numberOfFrames;
+        default: return result.averageFPS;
+    }
+}
+
+function isMetricHigherBetter() {
+    // FPS and frames: higher is better
+    // Memory and initialization: lower is better
+    return selectedMetric === 'fps' || selectedMetric === 'frames';
+}
+
+function formatMetricValue(value) {
+    if (value === null || value === undefined) return null;
+    switch (selectedMetric) {
+        case 'fps': return value.toFixed(2);
+        case 'memory': return value.toFixed(0);
+        case 'initialization': return value.toFixed(2);
+        case 'frames': return Math.round(value).toString();
+        default: return value.toFixed(2);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async function () {
     await initIndexedDB();
@@ -122,11 +166,28 @@ async function loadDataAndBuildUI() {
 function buildFilterPanel(rsIdSet, libSet) {
     const rsContainer = document.getElementById('resultSetFilters');
     const libContainer = document.getElementById('libraryFilters');
+    const metricContainer = document.getElementById('metricSelector');
     if (!rsContainer || !libContainer) return;
 
     // Clear previous content
     rsContainer.innerHTML = '<strong>Result Sets:</strong>';
     libContainer.innerHTML = '<strong>Libraries:</strong>';
+
+    // Build metric selector if container exists
+    if (metricContainer) {
+        metricContainer.innerHTML = `
+            <strong>Metric:</strong>
+            <label><input type="radio" name="metric" value="fps" ${selectedMetric === 'fps' ? 'checked' : ''}> Average FPS</label>
+            <label><input type="radio" name="metric" value="memory" ${selectedMetric === 'memory' ? 'checked' : ''}> Memory (MB)</label>
+            <label><input type="radio" name="metric" value="initialization" ${selectedMetric === 'initialization' ? 'checked' : ''}> Init Time (ms)</label>
+            <label><input type="radio" name="metric" value="frames" ${selectedMetric === 'frames' ? 'checked' : ''}> Total Frames</label>
+        `;
+
+        // Add event listeners for metric selection
+        document.querySelectorAll('input[name="metric"]').forEach((radio) => {
+            radio.addEventListener('change', onMetricChange);
+        });
+    }
 
     const rsLabelMap = {};
     allResultSetsData.forEach((rs) => {
@@ -190,6 +251,11 @@ function onFilterChange() {
         if (cb.checked) checkedLibraries.add(cb.dataset.lib);
     });
 
+    buildResultsSection();
+}
+
+function onMetricChange(e) {
+    selectedMetric = e.target.value;
     buildResultsSection();
 }
 
@@ -717,7 +783,7 @@ function createResultsTable(testName, testResults) {
 
     visibleCharts.forEach((chart) => {
         const cell = headerRow.insertCell();
-        cell.textContent = `${chart.name} (Avg FPS)`;
+        cell.textContent = `${chart.name} (${getMetricLabel()})`;
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
@@ -929,20 +995,21 @@ function createResultsTable(testName, testResults) {
         return aPoints - bPoints;
     });
 
-    // Collect all FPS values for heatmap calculation
-    const allFpsValues = [];
+    // Collect all metric values for heatmap calculation
+    const allMetricValues = [];
     Object.values(testResults).forEach((results) => {
         if (results && Array.isArray(results)) {
             results.forEach((result) => {
-                if (result.averageFPS && result.averageFPS > 0) {
-                    allFpsValues.push(result.averageFPS);
+                const value = getMetricValue(result);
+                if (value !== null && value !== undefined && value > 0) {
+                    allMetricValues.push(value);
                 }
             });
         }
     });
 
-    const minFps = allFpsValues.length > 0 ? Math.min(...allFpsValues) : 0;
-    const maxFps = allFpsValues.length > 0 ? Math.max(...allFpsValues) : 100;
+    const minMetric = allMetricValues.length > 0 ? Math.min(...allMetricValues) : 0;
+    const maxMetric = allMetricValues.length > 0 ? Math.max(...allMetricValues) : 100;
 
     // Create data rows
     sortedParams.forEach((paramStr) => {
@@ -968,7 +1035,7 @@ function createResultsTable(testName, testResults) {
                     chartResults = testResults[chartKey];
                 }
             }
-            let fps = null;
+            let metricValue = null;
 
             if (chartResults && Array.isArray(chartResults)) {
                 const matchingResult = chartResults.find((result) => {
@@ -985,15 +1052,15 @@ function createResultsTable(testName, testResults) {
                         cell.style.backgroundColor = '#ffcccc';
                         cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
-                    } else if (matchingResult.averageFPS) {
-                        fps = matchingResult.averageFPS;
+                    } else {
+                        metricValue = getMetricValue(matchingResult);
                     }
                 }
             }
 
-            if (fps !== null) {
-                cell.textContent = fps.toFixed(2);
-                cell.style.backgroundColor = getFpsHeatmapColor(fps, minFps, maxFps);
+            if (metricValue !== null) {
+                cell.textContent = formatMetricValue(metricValue);
+                cell.style.backgroundColor = getFpsHeatmapColor(metricValue, minMetric, maxMetric);
             } else if (!cell.textContent) {
                 cell.textContent = '-';
                 cell.style.backgroundColor = '#f9f9f9';
@@ -1057,7 +1124,8 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
 
     columns.forEach((col) => {
         const cell = headerRow.insertCell();
-        cell.textContent = singleResultSet ? `${col.shortName} (Avg FPS)` : `${col.shortName} [${col.rsLabel}]`;
+        const metricLabel = getMetricLabel();
+        cell.textContent = singleResultSet ? `${col.shortName} (${metricLabel})` : `${col.shortName} [${col.rsLabel}]`;
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
@@ -1086,18 +1154,21 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
         return aPoints - bPoints;
     });
 
-    // Collect FPS values for heatmap
-    const allFpsValues = [];
+    // Collect metric values for heatmap
+    const allMetricValues = [];
     columns.forEach((col) => {
         const results = testResultsByRs[col.rsId]?.[col.libName];
         if (results && Array.isArray(results)) {
             results.forEach((r) => {
-                if (r.averageFPS && r.averageFPS > 0) allFpsValues.push(r.averageFPS);
+                const value = getMetricValue(r);
+                if (value !== null && value !== undefined && value > 0) {
+                    allMetricValues.push(value);
+                }
             });
         }
     });
-    const minFps = allFpsValues.length > 0 ? Math.min(...allFpsValues) : 0;
-    const maxFps = allFpsValues.length > 0 ? Math.max(...allFpsValues) : 100;
+    const minMetric = allMetricValues.length > 0 ? Math.min(...allMetricValues) : 0;
+    const maxMetric = allMetricValues.length > 0 ? Math.max(...allMetricValues) : 100;
 
     // Data rows
     sortedParams.forEach((paramStr) => {
@@ -1116,7 +1187,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
             cell.style.textAlign = 'center';
 
             const results = testResultsByRs[col.rsId]?.[col.libName];
-            let fps = null;
+            let metricValue = null;
 
             if (results && Array.isArray(results)) {
                 const match = results.find((r) => {
@@ -1133,15 +1204,15 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
                         cell.style.backgroundColor = '#ffcccc';
                         cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
-                    } else if (match.averageFPS) {
-                        fps = match.averageFPS;
+                    } else {
+                        metricValue = getMetricValue(match);
                     }
                 }
             }
 
-            if (fps !== null) {
-                cell.textContent = fps.toFixed(2);
-                cell.style.backgroundColor = getFpsHeatmapColor(fps, minFps, maxFps);
+            if (metricValue !== null) {
+                cell.textContent = formatMetricValue(metricValue);
+                cell.style.backgroundColor = getFpsHeatmapColor(metricValue, minMetric, maxMetric);
             } else if (!cell.textContent) {
                 cell.textContent = '-';
                 cell.style.backgroundColor = '#f9f9f9';
@@ -1160,26 +1231,41 @@ function getShortLibName(libName) {
     return libName;
 }
 
-function getFpsHeatmapColor(fps, minFps, maxFps) {
-    if (fps === null || fps === undefined) return 'transparent';
+function getFpsHeatmapColor(value, minValue, maxValue) {
+    if (value === null || value === undefined) return 'transparent';
 
-    // Use 60 FPS as the maximum for green colouring
-    const targetMaxFps = 60;
+    const higherIsBetter = isMetricHigherBetter();
 
-    // Normalise FPS to 0-1 range, capping at 60 FPS
-    const normalised = Math.min(fps / targetMaxFps, 1);
+    // Normalise value to 0-1 range
+    let normalised;
+    if (maxValue === minValue) {
+        normalised = 0.5;
+    } else {
+        normalised = (value - minValue) / (maxValue - minValue);
+    }
 
-    // Create gradient: red (0 FPS) -> orange (30 FPS) -> green (60+ FPS)
+    // For metrics where lower is better, invert the normalisation
+    if (!higherIsBetter) {
+        normalised = 1 - normalised;
+    }
+
+    // Special handling for FPS to cap at 60
+    if (selectedMetric === 'fps') {
+        const targetMaxFps = 60;
+        normalised = Math.min(value / targetMaxFps, 1);
+    }
+
+    // Create gradient: red (bad) -> orange (medium) -> green (good)
     let red, green, blue;
 
     if (normalised < 0.5) {
-        // Red to Orange (0 to 30 FPS)
+        // Red to Orange
         const t = normalised * 2;
         red = 255;
         green = Math.round(165 * t);
         blue = 0;
     } else {
-        // Orange to Green (30 to 60+ FPS)
+        // Orange to Green
         const t = (normalised - 0.5) * 2;
         red = Math.round(255 * (1 - t));
         green = Math.round(165 + 90 * t);

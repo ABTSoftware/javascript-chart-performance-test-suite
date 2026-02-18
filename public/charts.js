@@ -202,9 +202,36 @@ let checkedResultSets = new Set();
 let checkedLibraries = new Set();
 // Chart type: 'line' or 'column'
 let chartType = 'line';
+// Metric selection state
+let selectedMetric = 'fps'; // 'fps', 'memory', 'initialization', 'frames'
 
 // SciChart imports (set in DOMContentLoaded)
 let SC = {};
+
+// ──────────────────────────────────────────────
+// Metric helper functions
+// ──────────────────────────────────────────────
+
+function getMetricLabel() {
+    switch (selectedMetric) {
+        case 'fps': return 'Average FPS';
+        case 'memory': return 'Memory (MB)';
+        case 'initialization': return 'Init Time (ms)';
+        case 'frames': return 'Total Frames';
+        default: return 'Average FPS';
+    }
+}
+
+function getMetricValue(result) {
+    if (!result || result.isErrored) return null;
+    switch (selectedMetric) {
+        case 'fps': return result.averageFPS;
+        case 'memory': return result.memory;
+        case 'initialization': return result.benchmarkTimeFirstFrame;
+        case 'frames': return result.numberOfFrames;
+        default: return result.averageFPS;
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async function () {
     SC = {
@@ -286,11 +313,28 @@ document.addEventListener('DOMContentLoaded', async function () {
 function buildFilterPanel(rsLabelMap, libSet) {
     const rsContainer = document.getElementById('resultSetFilters');
     const libContainer = document.getElementById('libraryFilters');
+    const metricContainer = document.getElementById('metricSelector');
 
     // Chart type radio buttons
     document.querySelectorAll('input[name="chartType"]').forEach((radio) => {
         radio.addEventListener('change', onChartTypeChange);
     });
+
+    // Metric selector
+    if (metricContainer) {
+        metricContainer.innerHTML = `
+            <strong>Metric:</strong>
+            <label><input type="radio" name="metric" value="fps" ${selectedMetric === 'fps' ? 'checked' : ''}> Average FPS</label>
+            <label><input type="radio" name="metric" value="memory" ${selectedMetric === 'memory' ? 'checked' : ''}> Memory (MB)</label>
+            <label><input type="radio" name="metric" value="initialization" ${selectedMetric === 'initialization' ? 'checked' : ''}> Init Time (ms)</label>
+            <label><input type="radio" name="metric" value="frames" ${selectedMetric === 'frames' ? 'checked' : ''}> Total Frames</label>
+        `;
+
+        // Add event listeners for metric selection
+        document.querySelectorAll('input[name="metric"]').forEach((radio) => {
+            radio.addEventListener('change', onMetricChange);
+        });
+    }
 
     // Result set checkboxes
     resultSetIds.forEach((rsId) => {
@@ -345,6 +389,18 @@ function onChartTypeChange(e) {
     chartType = e.target.value;
     // Full rebuild needed — column mode uses StackedColumnCollection
     clearAllSeries();
+    updateAllChartSeries();
+}
+
+function onMetricChange(e) {
+    selectedMetric = e.target.value;
+    // Update Y-axis titles for all charts
+    for (const [, info] of surfaceMap) {
+        const { surface } = info;
+        const yAxis = surface.yAxes.get(0);
+        yAxis.axisTitle = getMetricLabel();
+    }
+    // Update chart series with new metric
     updateAllChartSeries();
 }
 
@@ -448,7 +504,7 @@ async function createAllSurfaces(container) {
 
         const yAxis = new SC.NumericAxis(wasmContext, {
             autoRange: SC.EAutoRange.Always,
-            axisTitle: 'Average FPS',
+            axisTitle: getMetricLabel(),
             axisTitleStyle: { fontSize: 12 },
             labelStyle: { fontSize: 10 },
             growBy: new SC.NumberRange(0, 0.1),
@@ -721,12 +777,14 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
             const yValues = [];
 
             results.forEach((r) => {
-                if (!r.config || !r.averageFPS || r.isErrored) return;
+                if (!r.config || r.isErrored) return;
+                const metricValue = getMetricValue(r);
+                if (metricValue === null || metricValue === undefined) return;
                 const key = configKey(r.config);
                 const idx = categoryKeys.indexOf(key);
                 if (idx >= 0) {
                     xValues.push(idx);
-                    yValues.push(r.averageFPS);
+                    yValues.push(metricValue);
                 }
             });
 
