@@ -76,26 +76,27 @@
         </style>
     </head>
     <body>
-        <div class="page-header">
-            <h1>Performance Results - Charts</h1>
-            <nav class="page-nav">
-                <a href="index.html">Test Suite</a>
-            </nav>
-        </div>
-        <p>Each chart shows Average FPS per library across parameter configurations for a single test case.</p>
-        <div id="filter-panel">
-            <div id="resultSetFilters"><strong>Result Sets:</strong></div>
-            <div id="chartTypeToggle">
-                <strong>Chart Type:</strong>
-                <label><input type="radio" name="chartType" value="line" checked /> Line</label>
-                <label><input type="radio" name="chartType" value="column" /> Grouped Column</label>
+        <div class="sticky-header">
+            <div class="page-header">
+                <h1>Performance Results - Charts</h1>
+                <nav class="page-nav">
+                    <a href="index.html">Test Suite</a>
+                </nav>
             </div>
-        </div>
-        <div id="filter-panel-libs">
-            <div id="libraryFilters"><strong>Libraries:</strong></div>
-        </div>
-        <div id="filter-panel-metrics">
-            <div id="metricSelector"></div>
+            <div id="filter-panel">
+                <div id="resultSetFilters"><strong>Result Sets:</strong></div>
+                <div id="chartTypeToggle">
+                    <strong>Chart Type:</strong>
+                    <label><input type="radio" name="chartType" value="line" checked /> Line</label>
+                    <label><input type="radio" name="chartType" value="column" /> Grouped Column</label>
+                </div>
+            </div>
+            <div id="filter-panel-libs">
+                <div id="libraryFilters"><strong>Libraries:</strong></div>
+            </div>
+            <div id="filter-panel-metrics">
+                <div id="metricSelector"></div>
+            </div>
         </div>
         <div id="loading">Loading results and initialising charts...</div>
         <div id="charts-container"></div>
