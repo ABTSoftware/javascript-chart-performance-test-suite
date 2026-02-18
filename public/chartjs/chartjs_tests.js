@@ -442,6 +442,10 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
     let max = 0;
 
     const createChart = async () => {
+        if (pointsNum > 100000) {
+            console.warn(`Chart.js hangs/crashes beyond 100k columns. Skipping further tests.`);
+            return false;
+        }
         const config = {
             type: 'bar',
             options: {
