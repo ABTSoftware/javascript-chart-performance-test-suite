@@ -702,10 +702,14 @@ async function buildResultsSection() {
             runButtonsContainer.style.display = 'flex';
             runButtonsContainer.style.gap = '10px';
             runButtonsContainer.style.flexWrap = 'wrap';
+            runButtonsContainer.style.alignItems = 'center';
 
             // Find the test group index for this test name
             const testGroupId = Object.keys(E_TEST_NAME).find((key) => E_TEST_NAME[key] === testName);
             const testGroupIndex = testGroupId ? Object.keys(E_TEST_NAME).indexOf(testGroupId) + 1 : null;
+
+            // Collect all test URLs for this test group
+            const testUrls = [];
 
             visibleCharts.forEach((chart) => {
                 const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
@@ -721,10 +725,13 @@ async function buildResultsSection() {
                         }
                     }
 
+                    const fullUrl = `${href}?test_group_id=${testGroupIndex}`;
+                    testUrls.push({ chartName: chart.name, url: fullUrl });
+
                     const runLink = document.createElement('a');
                     runLink.textContent = `RUN ${chart.name}`;
                     runLink.className = 'run-test-link';
-                    runLink.href = `${href}?test_group_id=${testGroupIndex}`;
+                    runLink.href = fullUrl;
                     runLink.target = '_blank';
                     runLink.rel = 'noopener noreferrer';
                     runLink.style.padding = '5px 10px';
@@ -748,6 +755,36 @@ async function buildResultsSection() {
                     runButtonsContainer.appendChild(runLink);
                 }
             });
+
+            // Add "Run All" button if there are multiple tests
+            if (testUrls.length > 1) {
+                const runAllButton = document.createElement('button');
+                runAllButton.textContent = 'RUN ALL';
+                runAllButton.className = 'run-all-button';
+                runAllButton.style.padding = '5px 15px';
+                runAllButton.style.fontSize = '12px';
+                runAllButton.style.fontWeight = 'bold';
+                runAllButton.style.backgroundColor = '#28a745';
+                runAllButton.style.color = 'white';
+                runAllButton.style.border = 'none';
+                runAllButton.style.borderRadius = '3px';
+                runAllButton.style.cursor = 'pointer';
+                runAllButton.style.marginLeft = '10px';
+
+                runAllButton.addEventListener('mouseenter', () => {
+                    runAllButton.style.backgroundColor = '#218838';
+                });
+
+                runAllButton.addEventListener('mouseleave', () => {
+                    runAllButton.style.backgroundColor = '#28a745';
+                });
+
+                runAllButton.addEventListener('click', () => {
+                    runAllTests(testUrls, testName);
+                });
+
+                runButtonsContainer.appendChild(runAllButton);
+            }
 
             heading.appendChild(runButtonsContainer);
             section.appendChild(heading);
@@ -1307,4 +1344,118 @@ function getFpsHeatmapColor(value, minValue, maxValue) {
     }
 
     return `rgba(${red}, ${green}, ${blue}, 0.6)`;
+}
+
+// ──────────────────────────────────────────────
+// Run All Tests functionality
+// ──────────────────────────────────────────────
+
+/**
+ * Runs all tests in a test group sequentially
+ * Opens a fresh new tab for each library test, closes it when done, then opens next
+ * @param {Array<{chartName: string, url: string}>} testUrls - Array of test URLs to run
+ * @param {string} testName - Name of the test group
+ */
+async function runAllTests(testUrls, testName) {
+    if (testUrls.length === 0) {
+        alert('No tests to run');
+        return;
+    }
+
+    console.log(`Starting test run for: ${testName}`);
+    console.log(`Total tests to run: ${testUrls.length}`);
+
+    /**
+     * Waits for a test to complete by polling for the results-table-ready class
+     * @param {Window} win - The test window to monitor
+     * @param {number} maxWaitTime - Maximum time to wait in milliseconds
+     * @returns {Promise<boolean>} - True if completed, false if timeout or error
+     */
+    async function waitForTestCompletion(win, maxWaitTime = 600000) {
+        const startTime = Date.now();
+        const pollInterval = 500; // Check every 500ms
+
+        return new Promise((resolve) => {
+            const checkCompletion = () => {
+                // Check if window was closed externally
+                if (win.closed) {
+                    console.warn('Test window was closed externally');
+                    resolve(false);
+                    return;
+                }
+
+                try {
+                    // Try to access the window's document (same-origin only)
+                    const doc = win.document;
+                    const readyElement = doc.querySelector('.results-table-ready');
+
+                    if (readyElement) {
+                        console.log('Test completed - results-table-ready found');
+                        resolve(true);
+                        return;
+                    }
+                } catch (error) {
+                    // May fail during initial load - this is normal
+                }
+
+                // Check timeout
+                const elapsed = Date.now() - startTime;
+                if (elapsed >= maxWaitTime) {
+                    console.error('Test timeout exceeded');
+                    resolve(false);
+                    return;
+                }
+
+                // Continue polling
+                setTimeout(checkCompletion, pollInterval);
+            };
+
+            // Start checking after a brief delay to allow page load
+            setTimeout(checkCompletion, 1000);
+        });
+    }
+
+    // Run tests sequentially - each in a fresh new tab
+    for (let i = 0; i < testUrls.length; i++) {
+        const test = testUrls[i];
+        console.log(`[${i + 1}/${testUrls.length}] Opening new tab for: ${test.chartName}`);
+
+        // Open a fresh new tab for this test
+        const testWindow = window.open(test.url, '_blank');
+
+        if (!testWindow) {
+            console.error('Failed to open test window. Popup may be blocked.');
+            alert(
+                `Failed to open tab for "${test.chartName}". Please allow popups for this site.\n\n` +
+                `Tests completed so far: ${i}/${testUrls.length}`
+            );
+            break;
+        }
+
+        // Wait for test to complete
+        const completed = await waitForTestCompletion(testWindow);
+
+        if (!completed) {
+            console.error(`Test "${test.chartName}" failed or timed out`);
+        } else {
+            console.log(`[${i + 1}/${testUrls.length}] Completed: ${test.chartName}`);
+        }
+
+        // Close the test window
+        if (testWindow && !testWindow.closed) {
+            console.log(`Closing tab for: ${test.chartName}`);
+            testWindow.close();
+        }
+
+        // Small delay between tests to ensure results are saved to IndexedDB
+        // and to give a brief moment before opening the next tab
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+
+    console.log('All tests completed. Refreshing homepage...');
+
+    // Refresh the results section
+    await loadDataAndBuildUI();
+
+    console.log('Test run finished!');
 }
