@@ -761,6 +761,18 @@ function calculateDataIngestionRate(result, testName) {
         return null;
     }
 
+    // FIFO test: special handling because updateChart returns cumulative totals
+    // We need to calculate actual datapoints: initial + (increment per frame × frames)
+    if (testType === 'streaming' && testName === E_TEST_NAME.FIFO) {
+        if (updateFramesTime > 0 && numberOfFrames > 0 && increment > 0) {
+            // Total datapoints = initial data + incremental data added across all frames
+            const initialDatapoints = series * points * charts;
+            const incrementalDatapoints = increment * series * numberOfFrames * charts;
+            const totalDatapoints = initialDatapoints + incrementalDatapoints;
+            return totalDatapoints / updateFramesTime * 1000;
+        }
+    }
+
     // Dynamic tests: use totalDatapointsProcessed if available (the actual tracked datapoints)
     // This is the preferred method for all dynamic tests as it reflects actual data throughput
     if (totalDatapointsProcessed !== undefined && totalDatapointsProcessed !== null &&

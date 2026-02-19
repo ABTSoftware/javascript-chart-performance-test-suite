@@ -1277,8 +1277,8 @@ function getFpsHeatmapColor(value, minValue, maxValue) {
         } else {
             normalised = 1 - ((value - minValue) / (maxValue - minValue));
         }
-    } else if (selectedMetric === 'frames') {
-        // Total Frames: higher is better
+    } else if (selectedMetric === 'frames' || selectedMetric === 'ingestion') {
+        // Total Frames and Ingestion Rate: higher is better
         // min in table (0 or lowest) = red (0), max in table = green (1)
         if (maxValue === minValue) {
             normalised = 0.5;
