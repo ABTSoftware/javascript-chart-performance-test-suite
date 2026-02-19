@@ -307,6 +307,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
         // Update chart
         let frame = 0;
         let mem = 0;
+        let totalDatapointsProcessed = 0;
         const frameTimings = [];
         const MAX_REALISTIC_FPS = 240; // Cap at monitor refresh rate
         const MIN_FRAME_TIME = 1000 / MAX_REALISTIC_FPS; // ~4.17ms for 240 FPS
@@ -338,6 +339,9 @@ async function saveTestResults(chartLibrary, testCase, results) {
 
             try {
                 datapointCount = perfTest.updateChart(frame);
+                if (datapointCount !== undefined && datapointCount !== null) {
+                    totalDatapointsProcessed += datapointCount;
+                }
 
                 frame++;
                 await nextFrameRender();
@@ -429,6 +433,9 @@ async function saveTestResults(chartLibrary, testCase, results) {
 
         gTestFinished(i, frame, mem, frameTimings, hasError);
 
+        // Store totalDatapointsProcessed in the result record
+        gGetResultRecord(i).totalDatapointsProcessed = totalDatapointsProcessed;
+
         // Only show "chart deleted" message after the last test completes
         const isLastTest = i === tests.length - 1;
         if (isLastTest) {
@@ -493,9 +500,14 @@ async function saveTestResults(chartLibrary, testCase, results) {
         console.log('Result sample (first item):', result?.[0]);
 
         // Create a copy of results without frameTimings for persistence
+        // Calculate dataIngestionRate for each result
         const resultsForPersistence = result.map((item) => {
             const { frameTimings, ...itemWithoutFrameTimings } = item;
-            return itemWithoutFrameTimings;
+            const dataIngestionRate = calculateDataIngestionRate(item, testGroupName);
+            return {
+                ...itemWithoutFrameTimings,
+                dataIngestionRate: dataIngestionRate
+            };
         });
 
         console.log('Results for persistence (without frameTimings):', resultsForPersistence);

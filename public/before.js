@@ -661,6 +661,8 @@ const resultRecord = {
     frameTimings: undefined,
     isErrored: false,
     errorReason: null,
+    totalDatapointsProcessed: undefined,
+    dataIngestionRate: undefined,
 };
 const G_RESULT = [];
 

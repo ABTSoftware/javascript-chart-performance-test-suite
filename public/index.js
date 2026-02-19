@@ -18,25 +18,32 @@ function getMetricLabel() {
         case 'memory': return 'Memory (MB)';
         case 'initialization': return 'Init Time (ms)';
         case 'frames': return 'Total Frames';
+        case 'ingestion': return 'Ingestion Rate (pts/sec)';
         default: return 'Avg FPS';
     }
 }
 
-function getMetricValue(result) {
+function getMetricValue(result, testName) {
     if (!result || result.isErrored) return null;
     switch (selectedMetric) {
         case 'fps': return result.averageFPS;
         case 'memory': return result.memory;
         case 'initialization': return result.benchmarkTimeFirstFrame;
         case 'frames': return result.numberOfFrames;
+        case 'ingestion':
+            // Use pre-calculated value if available, otherwise calculate on-the-fly
+            if (result.dataIngestionRate !== undefined && result.dataIngestionRate !== null) {
+                return result.dataIngestionRate;
+            }
+            return calculateDataIngestionRate(result, testName);
         default: return result.averageFPS;
     }
 }
 
 function isMetricHigherBetter() {
-    // FPS and frames: higher is better
+    // FPS, frames, and ingestion: higher is better
     // Memory and initialization: lower is better
-    return selectedMetric === 'fps' || selectedMetric === 'frames';
+    return selectedMetric === 'fps' || selectedMetric === 'frames' || selectedMetric === 'ingestion';
 }
 
 function formatMetricValue(value) {
@@ -46,6 +53,12 @@ function formatMetricValue(value) {
         case 'memory': return value.toFixed(0);
         case 'initialization': return value.toFixed(2);
         case 'frames': return Math.round(value).toString();
+        case 'ingestion':
+            // Format with K, M, B suffixes for readability
+            if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
+            if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
+            if (value >= 1e3) return (value / 1e3).toFixed(2) + 'K';
+            return value.toFixed(0);
         default: return value.toFixed(2);
     }
 }
@@ -181,6 +194,7 @@ function buildFilterPanel(rsIdSet, libSet) {
             <label><input type="radio" name="metric" value="memory" ${selectedMetric === 'memory' ? 'checked' : ''}> Memory (MB)</label>
             <label><input type="radio" name="metric" value="initialization" ${selectedMetric === 'initialization' ? 'checked' : ''}> Init Time (ms)</label>
             <label><input type="radio" name="metric" value="frames" ${selectedMetric === 'frames' ? 'checked' : ''}> Total Frames</label>
+            <label><input type="radio" name="metric" value="ingestion" ${selectedMetric === 'ingestion' ? 'checked' : ''}> Ingestion Rate (pts/sec)</label>
         `;
 
         // Add event listeners for metric selection
@@ -1000,7 +1014,7 @@ function createResultsTable(testName, testResults) {
     Object.values(testResults).forEach((results) => {
         if (results && Array.isArray(results)) {
             results.forEach((result) => {
-                const value = getMetricValue(result);
+                const value = getMetricValue(result, testName);
                 if (value !== null && value !== undefined && value > 0) {
                     allMetricValues.push(value);
                 }
@@ -1058,7 +1072,7 @@ function createResultsTable(testName, testResults) {
                         cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
                     } else {
-                        metricValue = getMetricValue(matchingResult);
+                        metricValue = getMetricValue(matchingResult, testName);
                     }
                 }
             }
@@ -1165,7 +1179,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
         const results = testResultsByRs[col.rsId]?.[col.libName];
         if (results && Array.isArray(results)) {
             results.forEach((r) => {
-                const value = getMetricValue(r);
+                const value = getMetricValue(r, testName);
                 if (value !== null && value !== undefined && value > 0) {
                     allMetricValues.push(value);
                 }
@@ -1215,7 +1229,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
                         cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
                     } else {
-                        metricValue = getMetricValue(match);
+                        metricValue = getMetricValue(match, testName);
                     }
                 }
             }
