@@ -49,6 +49,10 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
     let storedSeries;
 
     const createChart = async () => {
+        if (seriesNum > 4000) {
+            console.warn('ChartGPU occassionally crashing the browser with Out of Memory for series >= 8000 so we will skip further tests');
+            return false;
+        }
         await waitForChartGPU();
         const container = document.getElementById('chart-root');
 

@@ -741,7 +741,7 @@ function calculateDataIngestionRate(result, testName) {
     const increment = config.increment || 0;
     const charts = config.charts || 1;
     const numberOfFrames = result.numberOfFrames || 0;
-    const benchmarkTimeInitialDataAppend = result.benchmarkTimeInitialDataAppend || 0;
+    const benchmarkTimeFirstFrame = result.benchmarkTimeFirstFrame || 0;
     const updateFramesTime = result.updateFramesTime || 0;
     const totalDatapointsProcessed = result.totalDatapointsProcessed;
 
@@ -753,12 +753,23 @@ function calculateDataIngestionRate(result, testName) {
 
     // Calculate based on test type
     if (testType === 'static') {
-        // Static tests: calculate from initial data append
-        // Formula: (series × points) / benchmarkTimeInitialDataAppend × 1000
-        if (benchmarkTimeInitialDataAppend > 0) {
-            return (series * points) / benchmarkTimeInitialDataAppend * 1000;
+        // Static tests: calculate from total initialization time (time to first rendered frame)
+        // Formula: (series × points × charts) / benchmarkTimeFirstFrame × 1000
+        if (benchmarkTimeFirstFrame > 0) {
+            return (series * points * charts) / benchmarkTimeFirstFrame * 1000;
         }
-    } else if (testType === 'realtime-regenerate') {
+        return null;
+    }
+
+    // Dynamic tests: use totalDatapointsProcessed if available (the actual tracked datapoints)
+    // This is the preferred method for all dynamic tests as it reflects actual data throughput
+    if (totalDatapointsProcessed !== undefined && totalDatapointsProcessed !== null &&
+        updateFramesTime > 0) {
+        return totalDatapointsProcessed / updateFramesTime * 1000;
+    }
+
+    // Fallback formulas for dynamic tests if totalDatapointsProcessed is not available
+    if (testType === 'realtime-regenerate') {
         // Realtime regenerate: all data regenerated each frame
         // Formula: (series × points × numberOfFrames) / updateFramesTime × 1000
         if (updateFramesTime > 0 && numberOfFrames > 0) {
@@ -776,12 +787,6 @@ function calculateDataIngestionRate(result, testName) {
         if (updateFramesTime > 0 && numberOfFrames > 0) {
             return (points * points * numberOfFrames) / updateFramesTime * 1000;
         }
-    }
-
-    // Fallback: use totalDatapointsProcessed if available
-    if (totalDatapointsProcessed !== undefined && totalDatapointsProcessed !== null &&
-        updateFramesTime > 0) {
-        return totalDatapointsProcessed / updateFramesTime * 1000;
     }
 
     return null;
