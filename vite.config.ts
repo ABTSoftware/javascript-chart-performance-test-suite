@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,32 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [
     react(),
+    viteStaticCopy({
+      targets: [
+        { src: 'node_modules/scichart/_wasm/scichart2d.wasm', dest: 'scichart' },
+        { src: 'node_modules/scichart/_wasm/scichart2d-nosimd.wasm', dest: 'scichart' },
+        { src: 'node_modules/scichart/_wasm/scichart3d.wasm', dest: 'scichart' },
+        { src: 'node_modules/scichart/_wasm/scichart3d-nosimd.wasm', dest: 'scichart' },
+      ],
+    }),
+    {
+      name: 'serve-scichart-wasm',
+      configureServer(server) {
+        server.middlewares.use('/scichart', (req, res, next) => {
+          const wasmFiles = ['scichart2d.wasm', 'scichart2d-nosimd.wasm', 'scichart3d.wasm', 'scichart3d-nosimd.wasm'];
+          const fileName = req.url?.replace('/', '');
+          if (fileName && wasmFiles.includes(fileName)) {
+            const filePath = path.resolve(__dirname, 'node_modules/scichart/_wasm', fileName);
+            if (fs.existsSync(filePath)) {
+              res.setHeader('Content-Type', 'application/wasm');
+              res.end(fs.readFileSync(filePath));
+              return;
+            }
+          }
+          next();
+        });
+      },
+    },
     {
       name: 'serve-storage-state',
       configureServer(server) {

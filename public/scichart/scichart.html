@@ -1,22 +1,19 @@
+<!DOCTYPE html>
 <html lang="en-us">
-    <head>
-        <meta charset="utf-8" />
-        <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
-        <title>Stress Test SciChart.js</title>
-        <link rel="stylesheet" href="../style.css" />
-        <script defer src="../before.js"></script>
-        <script defer src="lib/index.min.js" crossorigin="anonymous"></script>
-        <script defer src="scichart_tests.js"></script>
-        <script defer src="../shared.js"></script>
-        <script defer src="../after.js"></script>
-    </head>
-    <body>
-        <h1>Stress Test SciChart.js</h1>
-        <div class="chart-container">
-            <div id="chart-root"></div>
-            <div id="system-info"></div>
-        </div>
-        <div id="result-table"></div>
-        <a id="download-link">Download Result</a>
-    </body>
+<head>
+    <meta charset="utf-8" />
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+    <title>SciChart.js Performance Test</title>
+    <link rel="stylesheet" href="../style.css" />
+</head>
+<body>
+    <h1>SciChart.js Performance Test</h1>
+    <div class="chart-container">
+        <div id="chart-root"></div>
+        <div id="system-info"></div>
+    </div>
+    <div id="result-table"></div>
+    <script type="module" src="./scichart_tests.ts"></script>
+    <script type="module" src="/src/test-runner.ts"></script>
+</body>
 </html>

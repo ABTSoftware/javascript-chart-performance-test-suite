@@ -22,6 +22,6 @@
       "@contexts/*": ["./src/contexts/*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "public"]
+  "include": ["src/**/*", "public/scichart/scichart_tests.ts"],
+  "exclude": ["node_modules"]
 }

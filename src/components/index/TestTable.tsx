@@ -77,9 +77,39 @@ export function TestTable({ filteredResults }: TestTableProps) {
         });
         benchmarkScores.sort((a, b) => b.score - a.score);
 
+        const testGroupId = Object.keys(E_TEST_NAME).indexOf(
+          Object.keys(E_TEST_NAME).find((k) => E_TEST_NAME[k as keyof typeof E_TEST_NAME] === testName) || ''
+        ) + 1;
+
         return (
           <div key={testName} style={{ marginBottom: '30px' }}>
-            <h3 style={{ marginBottom: '10px' }}>{testName}</h3>
+            <h3 style={{ marginBottom: '6px' }}>{testName}</h3>
+
+            {/* RUN buttons - always visible for re-running */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+              {visibleCharts.map((chart) => {
+                const href = getChartLibraryPath(chart.name, testName);
+                return (
+                  <a
+                    key={chart.name}
+                    href={`${href}?test_group_id=${testGroupId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '12px',
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      borderRadius: '3px',
+                      textDecoration: 'none',
+                      display: 'inline-block',
+                    }}
+                  >
+                    RUN {chart.name}
+                  </a>
+                );
+              })}
+            </div>
 
             {/* Main results table */}
             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px' }}>
@@ -107,29 +137,16 @@ export function TestTable({ filteredResults }: TestTableProps) {
 
                   const configs = Array.from(configSet);
 
-                  // If no configs, show a RUN row
+                  // If no configs, show an empty state row
                   if (configs.length === 0) {
                     return (
                       <tr>
-                        <td style={{ border: '1px solid #ccc', padding: '8px' }}>-</td>
-                        {visibleCharts.map((chart, idx) => {
-                          const testGroupId = Object.keys(E_TEST_NAME).indexOf(
-                            Object.keys(E_TEST_NAME).find((k) => E_TEST_NAME[k as keyof typeof E_TEST_NAME] === testName) || ''
-                          ) + 1;
-                          const href = getChartLibraryPath(chart.name, testName);
-                          return (
-                            <td key={chart.name} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>
-                              <a
-                                href={`${href}?test_group_id=${testGroupId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: '#007bff', textDecoration: 'none', fontWeight: 'bold' }}
-                              >
-                                RUN
-                              </a>
-                            </td>
-                          );
-                        })}
+                        <td
+                          colSpan={visibleCharts.length + 1}
+                          style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center', color: '#999' }}
+                        >
+                          No results yet — use the RUN buttons above to run tests
+                        </td>
                       </tr>
                     );
                   }
@@ -165,20 +182,9 @@ export function TestTable({ filteredResults }: TestTableProps) {
 
                           if (!fullLibName) {
                             // No results, show RUN link
-                            const testGroupId = Object.keys(E_TEST_NAME).indexOf(
-                              Object.keys(E_TEST_NAME).find((k) => E_TEST_NAME[k as keyof typeof E_TEST_NAME] === testName) || ''
-                            ) + 1;
-                            const href = getChartLibraryPath(chart.name, testName);
                             return (
-                              <td key={chart.name} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>
-                                <a
-                                  href={`${href}?test_group_id=${testGroupId}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{ color: '#007bff', textDecoration: 'none', fontWeight: 'bold' }}
-                                >
-                                  RUN
-                                </a>
+                              <td key={chart.name} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center', color: '#999' }}>
+                                -
                               </td>
                             );
                           }
