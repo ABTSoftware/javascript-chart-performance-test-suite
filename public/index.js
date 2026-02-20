@@ -780,9 +780,12 @@ function createResultsTable(testName, testResults) {
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
     table.style.width = '100%';
+    table.style.tableLayout = 'fixed';
     table.style.marginBottom = '20px';
 
     const visibleCharts = CHARTS.filter((c) => checkedLibraries.has(c.name));
+    const paramsColWidth = 15;
+    const libColWidth = visibleCharts.length > 0 ? (100 - paramsColWidth) / visibleCharts.length : 85;
 
     // Create header row
     const headerRow = table.insertRow();
@@ -794,6 +797,7 @@ function createResultsTable(testName, testResults) {
     paramsHeader.style.border = '1px solid #ccc';
     paramsHeader.style.padding = '8px';
     paramsHeader.style.textAlign = 'left';
+    paramsHeader.style.width = `${paramsColWidth}%`;
 
     visibleCharts.forEach((chart) => {
         const cell = headerRow.insertCell();
@@ -801,6 +805,8 @@ function createResultsTable(testName, testResults) {
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
+        cell.style.width = `${libColWidth}%`;
+        cell.style.fontSize = '14px';
     });
 
     // Get all possible parameter combinations from test configurations
@@ -1096,6 +1102,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
     table.style.width = '100%';
+    table.style.tableLayout = 'fixed';
     table.style.marginBottom = '20px';
 
     // Build column definitions: one per (resultSet, library) pair that has data
@@ -1131,11 +1138,15 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
     headerRow.style.backgroundColor = '#f0f0f0';
     headerRow.style.fontWeight = 'bold';
 
+    const paramsColWidth = 15;
+    const libColWidth = columns.length > 0 ? (100 - paramsColWidth) / columns.length : 85;
+
     const paramsHeader = headerRow.insertCell();
     paramsHeader.textContent = 'Parameters';
     paramsHeader.style.border = '1px solid #ccc';
     paramsHeader.style.padding = '8px';
     paramsHeader.style.textAlign = 'left';
+    paramsHeader.style.width = `${paramsColWidth}%`;
 
     // Check if there's only one result set — if so, omit the bracket suffix
     const uniqueRsIds = new Set(columns.map((c) => c.rsId));
@@ -1148,7 +1159,8 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
-        cell.style.fontSize = '12px';
+        cell.style.fontSize = '14px';
+        cell.style.width = `${libColWidth}%`;
     });
 
     // Collect parameter combinations from all columns
