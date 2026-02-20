@@ -492,7 +492,7 @@ async function createAllSurfaces(container) {
 
         const { sciChartSurface, wasmContext } = await SC.SciChartSurface.create(divId, {
             theme: new SC.SciChartJSLightTheme(),
-            title: testName,
+            title: `${testName} — ${getMetricLabel()}`,
             titleStyle: {
                 fontSize: 16,
                 color: "#333",
