@@ -1,0 +1,59 @@
+.errorContainer {
+  margin: 40px auto;
+  max-width: 800px;
+  padding: 20px;
+  background: #fff5f5;
+  border: 2px solid #ff6b6b;
+  border-radius: 8px;
+}
+
+.errorTitle {
+  color: #c92a2a;
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.errorMessage {
+  color: #862e2e;
+  margin: 0 0 16px 0;
+  font-family: monospace;
+  font-size: 14px;
+  background: #ffe0e0;
+  padding: 12px;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+.errorStack {
+  color: #555;
+  font-family: monospace;
+  font-size: 12px;
+  background: #f8f8f8;
+  padding: 12px;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.errorActions {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+}
+
+.reloadButton {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.reloadButton:hover {
+  background: #0056b3;
+}
