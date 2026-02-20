@@ -402,11 +402,14 @@ function onChartTypeChange(e) {
 
 function onMetricChange(e) {
     selectedMetric = e.target.value;
-    // Update Y-axis titles for all charts
-    for (const [, info] of surfaceMap) {
+    const metricLabel = getMetricLabel();
+    // Update Y-axis titles and chart titles for all charts
+    for (const [testKey, info] of surfaceMap) {
         const { surface } = info;
         const yAxis = surface.yAxes.get(0);
-        yAxis.axisTitle = getMetricLabel();
+        yAxis.axisTitle = metricLabel;
+        const testName = E_TEST_NAME[testKey];
+        surface.title = `${testName} — ${metricLabel}`;
     }
     // Update chart series with new metric
     updateAllChartSeries();
