@@ -797,7 +797,7 @@ function createResultsTable(testName, testResults) {
 
     visibleCharts.forEach((chart) => {
         const cell = headerRow.insertCell();
-        cell.textContent = `${chart.name} (${getMetricLabel()})`;
+        cell.textContent = `${chart.name} ${getMetricLabel()}`;
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
@@ -1144,7 +1144,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
     columns.forEach((col) => {
         const cell = headerRow.insertCell();
         const metricLabel = getMetricLabel();
-        cell.textContent = singleResultSet ? `${col.shortName} (${metricLabel})` : `${col.shortName} [${col.rsLabel}]`;
+        cell.textContent = singleResultSet ? `${col.shortName} ${metricLabel}` : `${col.shortName} [${col.rsLabel}]`;
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
