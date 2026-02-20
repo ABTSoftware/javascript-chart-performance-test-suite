@@ -18,3 +18,4 @@ package-lock.json
 /tests/storage-state.json
 *.pdf
 /.claude
+/dist

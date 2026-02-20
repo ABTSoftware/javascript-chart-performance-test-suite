@@ -25,15 +25,16 @@ export default defineConfig({
       },
     },
   ],
-  root: 'public',
+  root: path.resolve(__dirname),
+  publicDir: false,
   build: {
-    outDir: '../dist',
+    outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        // React pages
-        index: path.resolve(__dirname, 'public/index-react.html'),
-        charts: path.resolve(__dirname, 'public/charts-react.html'),
+        // React pages (at project root)
+        index: path.resolve(__dirname, 'index-react.html'),
+        charts: path.resolve(__dirname, 'charts-react.html'),
 
         // Test execution pages (TypeScript test runner)
         'scichart-ts': path.resolve(__dirname, 'public/scichart/scichart-ts.html'),

@@ -28,7 +28,7 @@ const G_TEST_GROUP_NAME = {
     SURFACE_3D_PERFORMANCE_TEST: '3D Surface Performance Test',
 };
 
-const testDuration = 5000; // 5 seconds
+const testDuration = 3000; // 3 seconds
 
 // If you want to run one test type set "testTypeToRun: G_TEST_TYPE.MOUNTAIN_PERFORMANCE_TEST"
 const G_TEST_GROUPS = {

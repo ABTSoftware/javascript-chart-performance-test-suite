@@ -87,7 +87,7 @@ export function IndexPage() {
         <div className="page-header">
           <h1>Performance Comparison Test Suite</h1>
           <nav className="page-nav">
-            <a href="charts.html">Charts View</a>
+            <a href="charts-react.html">Charts View</a>
           </nav>
         </div>
         <div id="filter-panel">

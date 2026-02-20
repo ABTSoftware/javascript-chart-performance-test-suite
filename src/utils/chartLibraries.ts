@@ -7,47 +7,47 @@ import { E_TEST_NAME } from '../constants/testNames';
 export const CHARTS: ChartLibrary[] = [
   {
     name: 'SciChart.js',
-    path: 'scichart/scichart.html',
+    path: 'public/scichart/scichart.html',
   },
   {
     name: 'Highcharts',
-    path: 'highcharts/highcharts.html',
+    path: 'public/highcharts/highcharts.html',
     custom: [
       {
-        path: 'highcharts/highcharts_stock_charts.html',
+        path: 'public/highcharts/highcharts_stock_charts.html',
         test: E_TEST_NAME.CANDLESTICK,
       },
     ],
   },
   {
     name: 'Chart.js',
-    path: 'chartjs/chartjs.html',
+    path: 'public/chartjs/chartjs.html',
     custom: [
       {
-        path: 'chartjs/chartjs_candlestick.html',
+        path: 'public/chartjs/chartjs_candlestick.html',
         test: E_TEST_NAME.CANDLESTICK,
       },
     ],
   },
   {
     name: 'Plotly.js',
-    path: 'plotly/plotly.html',
+    path: 'public/plotly/plotly.html',
   },
   {
     name: 'Apache ECharts',
-    path: 'echarts/echarts.html',
+    path: 'public/echarts/echarts.html',
   },
   {
     name: 'uPlot',
-    path: 'uPlot/uPlot.html',
+    path: 'public/uPlot/uPlot.html',
   },
   {
     name: 'ChartGPU',
-    path: 'chartgpu/chartgpu.html',
+    path: 'public/chartgpu/chartgpu.html',
   },
   {
     name: 'Lcjs',
-    path: 'lcjsv4/lcjs.html',
+    path: 'public/lcjsv4/lcjs.html',
   },
 ];
 
