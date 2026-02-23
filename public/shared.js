@@ -700,7 +700,6 @@ function detectTestType(testName) {
         testName === E_TEST_NAME.COLUMN ||
         testName === E_TEST_NAME.CANDLESTICK ||
         testName === E_TEST_NAME.MOUNTAIN ||
-        testName === E_TEST_NAME.POINTCLOUD_3D ||
         testName === E_TEST_NAME.SURFACE_3D
     ) {
         return 'static';
@@ -710,7 +709,8 @@ function detectTestType(testName) {
     if (
         testName === E_TEST_NAME.SCATTER ||
         testName === E_TEST_NAME.LINE ||
-        testName === E_TEST_NAME.POINT_LINE
+        testName === E_TEST_NAME.POINT_LINE ||
+        testName === E_TEST_NAME.POINTCLOUD_3D
     ) {
         return 'realtime-regenerate';
     }
