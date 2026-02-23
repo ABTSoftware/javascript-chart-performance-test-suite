@@ -190,6 +190,8 @@ function getShortLibName(libName) {
 
 // Map<testKey, { surface, wasmContext, categoryKeys, categoryLabels }>
 const surfaceMap = new Map();
+// Map<testKey, { surface, wasmContext }> for benchmark charts
+const benchmarkSurfaceMap = new Map();
 // All loaded data
 let allResultsData = [];
 let allResultSetsData = [];
@@ -200,9 +202,36 @@ let checkedResultSets = new Set();
 let checkedLibraries = new Set();
 // Chart type: 'line' or 'column'
 let chartType = 'line';
+// Metric selection state
+let selectedMetric = 'fps'; // 'fps', 'memory', 'initialization', 'frames'
 
 // SciChart imports (set in DOMContentLoaded)
 let SC = {};
+
+// ──────────────────────────────────────────────
+// Metric helper functions
+// ──────────────────────────────────────────────
+
+function getMetricLabel() {
+    switch (selectedMetric) {
+        case 'fps': return 'Average FPS';
+        case 'memory': return 'Memory (MB)';
+        case 'initialization': return 'Init Time (ms)';
+        case 'frames': return 'Total Frames';
+        default: return 'Average FPS';
+    }
+}
+
+function getMetricValue(result) {
+    if (!result || result.isErrored) return null;
+    switch (selectedMetric) {
+        case 'fps': return result.averageFPS;
+        case 'memory': return result.memory;
+        case 'initialization': return result.benchmarkTimeFirstFrame;
+        case 'frames': return result.numberOfFrames;
+        default: return result.averageFPS;
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async function () {
     SC = {
@@ -211,6 +240,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         TextLabelProvider: SciChart.TextLabelProvider,
         XyDataSeries: SciChart.XyDataSeries,
         FastLineRenderableSeries: SciChart.FastLineRenderableSeries,
+        FastColumnRenderableSeries: SciChart.FastColumnRenderableSeries,
         EllipsePointMarker: SciChart.EllipsePointMarker,
         SquarePointMarker: SciChart.SquarePointMarker,
         TrianglePointMarker: SciChart.TrianglePointMarker,
@@ -283,11 +313,28 @@ document.addEventListener('DOMContentLoaded', async function () {
 function buildFilterPanel(rsLabelMap, libSet) {
     const rsContainer = document.getElementById('resultSetFilters');
     const libContainer = document.getElementById('libraryFilters');
+    const metricContainer = document.getElementById('metricSelector');
 
     // Chart type radio buttons
     document.querySelectorAll('input[name="chartType"]').forEach((radio) => {
         radio.addEventListener('change', onChartTypeChange);
     });
+
+    // Metric selector
+    if (metricContainer) {
+        metricContainer.innerHTML = `
+            <strong>Metric:</strong>
+            <label><input type="radio" name="metric" value="fps" ${selectedMetric === 'fps' ? 'checked' : ''}> Average FPS</label>
+            <label><input type="radio" name="metric" value="memory" ${selectedMetric === 'memory' ? 'checked' : ''}> Memory (MB)</label>
+            <label><input type="radio" name="metric" value="initialization" ${selectedMetric === 'initialization' ? 'checked' : ''}> Init Time (ms)</label>
+            <label><input type="radio" name="metric" value="frames" ${selectedMetric === 'frames' ? 'checked' : ''}> Total Frames</label>
+        `;
+
+        // Add event listeners for metric selection
+        document.querySelectorAll('input[name="metric"]').forEach((radio) => {
+            radio.addEventListener('change', onMetricChange);
+        });
+    }
 
     // Result set checkboxes
     resultSetIds.forEach((rsId) => {
@@ -345,8 +392,25 @@ function onChartTypeChange(e) {
     updateAllChartSeries();
 }
 
+function onMetricChange(e) {
+    selectedMetric = e.target.value;
+    // Update Y-axis titles for all charts
+    for (const [, info] of surfaceMap) {
+        const { surface } = info;
+        const yAxis = surface.yAxes.get(0);
+        yAxis.axisTitle = getMetricLabel();
+    }
+    // Update chart series with new metric
+    updateAllChartSeries();
+}
+
 function clearAllSeries() {
     for (const [, info] of surfaceMap) {
+        const { surface } = info;
+        surface.renderableSeries.clear();
+    }
+    // Also clear benchmark charts
+    for (const [, info] of benchmarkSurfaceMap) {
         const { surface } = info;
         surface.renderableSeries.clear();
     }
@@ -440,7 +504,7 @@ async function createAllSurfaces(container) {
 
         const yAxis = new SC.NumericAxis(wasmContext, {
             autoRange: SC.EAutoRange.Always,
-            axisTitle: 'Average FPS',
+            axisTitle: getMetricLabel(),
             axisTitleStyle: { fontSize: 12 },
             labelStyle: { fontSize: 10 },
             growBy: new SC.NumberRange(0, 0.1),
@@ -504,6 +568,109 @@ async function createAllSurfaces(container) {
             wasmContext,
             categoryKeys,
             categoryLabels,
+        });
+
+        // ──────────────────────────────────────────────
+        // Create Benchmark Chart (below FPS chart)
+        // ──────────────────────────────────────────────
+
+        const benchmarkDivId = 'benchmark-chart-' + testKey;
+        const benchmarkLegendDivId = 'benchmark-legend-' + testKey;
+
+        const benchmarkChartDiv = document.createElement('div');
+        benchmarkChartDiv.id = benchmarkDivId;
+        benchmarkChartDiv.className = 'benchmark-chart-div';
+        benchmarkChartDiv.style.height = '200px';
+        benchmarkChartDiv.style.marginTop = '20px';
+        section.appendChild(benchmarkChartDiv);
+
+        // Create legend container for benchmark chart
+        const benchmarkLegendDiv = document.createElement('div');
+        benchmarkLegendDiv.id = benchmarkLegendDivId;
+        benchmarkLegendDiv.className = 'legend-div';
+        section.appendChild(benchmarkLegendDiv);
+
+        container.appendChild(section);
+
+        const { sciChartSurface: benchmarkSurface, wasmContext: benchmarkWasmContext } =
+            await SC.SciChartSurface.create(benchmarkDivId, {
+                theme: new SC.SciChartJSLightTheme(),
+                title: `Benchmark Score: ${testName}`,
+                titleStyle: {
+                    fontSize: 14,
+                    color: "#333",
+                    fontWeight: "bold",
+                    useNativeText: false,
+                },
+                isRotatedChart: true, // Rotate 90 degrees for horizontal bars
+            });
+
+        // With isRotatedChart: true, axes are transposed
+        // X-axis will show library names (categories) - appears on left after rotation
+        const benchmarkXAxis = new SC.NumericAxis(benchmarkWasmContext, {
+            axisTitle: 'Library',
+            axisTitleStyle: { fontSize: 12 },
+            labelStyle: { fontSize: 10 },
+            drawMinorGridLines: false,
+        });
+        benchmarkSurface.xAxes.add(benchmarkXAxis);
+
+        // Y-axis will show benchmark scores - appears on bottom after rotation
+        const benchmarkYAxis = new SC.NumericAxis(benchmarkWasmContext, {
+            autoRange: SC.EAutoRange.Always,
+            axisTitle: 'Benchmark Score',
+            axisTitleStyle: { fontSize: 12 },
+            labelStyle: { fontSize: 10 },
+            growBy: new SC.NumberRange(0, 0.1),
+            drawMinorGridLines: false,
+        });
+        benchmarkYAxis.visibleRangeChanged.subscribe((data) => {
+            benchmarkYAxis.visibleRangeProperty = new SC.NumberRange(0, data.visibleRange.max);
+        });
+        benchmarkSurface.yAxes.add(benchmarkYAxis);
+
+        // Create legend modifier for benchmark chart
+        const benchmarkLegendModifier = new SC.LegendModifier({
+            placementDivId: benchmarkLegendDivId,
+            orientation: SC.ELegendOrientation.Horizontal,
+            showSeriesMarkers: true,
+            showCheckboxes: false,
+        });
+
+        // Override getLegendItemHTML for benchmark legend
+        benchmarkLegendModifier.sciChartLegend.getLegendItemHTML = (orientation, showCheckboxes, showSeriesMarkers, item) => {
+            const display = orientation === SC.ELegendOrientation.Vertical ? "flex" : "inline-flex";
+            let str = `<span class="scichart__legend-item" style="display: ${display}; align-items: center; margin-right: 8px; padding: 0 4px; white-space: nowrap; gap: 5px; font-size: 12px; font-weight: bold;">`;
+
+            if (showCheckboxes) {
+                const checked = item.checked ? "checked" : "";
+                str += `<input ${checked} type="checkbox" id="${item.id}">`;
+            }
+
+            if (showSeriesMarkers) {
+                // Simple colored square for benchmark legend
+                str += `<svg xmlns="http://www.w3.org/2000/svg" for="${item.id}" style="width: 12px; height: 12px;" viewBox="0 0 24 24">
+                    <rect x="5" y="5" width="14" height="14" fill="${item.color}" stroke="${item.color}" stroke-width="1" rx="2" />
+                </svg>`;
+            }
+
+            str += `<label for="${item.id}" style="font-size: 12px; font-weight: bold;">${item.name}</label></span>`;
+            return str;
+        };
+
+        benchmarkSurface.chartModifiers.add(benchmarkLegendModifier);
+
+        benchmarkSurface.chartModifiers.add(
+            new SC.CursorModifier({
+                showTooltip: true,
+                snapToDataPoint: true,
+                hitTestRadius: 0
+            })
+        );
+
+        benchmarkSurfaceMap.set(testKey, {
+            surface: benchmarkSurface,
+            wasmContext: benchmarkWasmContext,
         });
     }
 }
@@ -610,12 +777,14 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
             const yValues = [];
 
             results.forEach((r) => {
-                if (!r.config || !r.averageFPS || r.isErrored) return;
+                if (!r.config || r.isErrored) return;
+                const metricValue = getMetricValue(r);
+                if (metricValue === null || metricValue === undefined) return;
                 const key = configKey(r.config);
                 const idx = categoryKeys.indexOf(key);
                 if (idx >= 0) {
                     xValues.push(idx);
-                    yValues.push(r.averageFPS);
+                    yValues.push(metricValue);
                 }
             });
 
@@ -644,6 +813,13 @@ function updateAllChartSeries() {
         } else {
             updateLineSeries(surface, wasmContext, seriesDataMap);
         }
+    }
+
+    // Update benchmark charts
+    for (const [testKey, info] of benchmarkSurfaceMap) {
+        const testName = E_TEST_NAME[testKey];
+        const { surface, wasmContext } = info;
+        updateBenchmarkChart(testName, grouped, surface, wasmContext);
     }
 }
 
@@ -756,4 +932,156 @@ function updateColumnSeries(surface, wasmContext, seriesDataMap) {
     }
 
     surface.renderableSeries.add(collection);
+}
+
+// ──────────────────────────────────────────────
+// Benchmark chart update
+// ──────────────────────────────────────────────
+
+function updateBenchmarkChart(testName, grouped, surface, wasmContext) {
+    surface.renderableSeries.clear();
+
+    const testData = grouped[testName] || {};
+
+    // Build result set label map
+    const rsLabelMap = {};
+    allResultSetsData.forEach((rs) => {
+        rsLabelMap[rs.id] = rs.label;
+    });
+    const multipleResultSets = checkedResultSets.size > 1 || resultSetIds.length > 1;
+
+    // Collect all parameter combinations from this test case
+    const allParamCombos = [];
+    const paramSet = new Set();
+
+    Object.values(testData).forEach((libResults) => {
+        Object.values(libResults).forEach((results) => {
+            if (results && Array.isArray(results)) {
+                results.forEach((result) => {
+                    if (result.config) {
+                        const paramKey = JSON.stringify({
+                            points: result.config.points || 0,
+                            series: result.config.series || 1,
+                            charts: result.config.charts || 1,
+                        });
+                        paramSet.add(paramKey);
+                    }
+                });
+            }
+        });
+    });
+
+    paramSet.forEach((paramKey) => {
+        allParamCombos.push(JSON.parse(paramKey));
+    });
+
+    // Calculate benchmark scores for each (resultSet, library) combination
+    // Include ALL checked libraries, even those with no results (score = 0)
+    const benchmarkScores = [];
+
+    // Iterate over all checked result sets and libraries
+    checkedResultSets.forEach(rsId => {
+        checkedLibraries.forEach(shortName => {
+            const rsLabel = rsLabelMap[rsId] || rsId;
+            const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
+            const color = getColorForLibrary(shortName);
+
+            // Check if results exist for this combination
+            const libResults = testData[rsId];
+            let score = 0;
+
+            if (libResults) {
+                // Find the full library name (might have version suffix)
+                const libName = Object.keys(libResults).find(key => getShortLibName(key) === shortName);
+
+                if (libName && libResults[libName]) {
+                    const results = libResults[libName];
+                    // Calculate benchmark score for this library
+                    score = calculateBenchmarkScore({ test: results }, allParamCombos);
+                }
+            }
+
+            // Include all scores, even 0 (for tests that haven't run, are unsupported, or crashed)
+            benchmarkScores.push({
+                rsId,
+                rsLabel,
+                libName: shortName,
+                shortName,
+                name,
+                score,
+                color,
+            });
+        });
+    });
+
+    if (benchmarkScores.length === 0) return;
+
+    // Sort by score descending
+    benchmarkScores.sort((a, b) => b.score - a.score);
+
+    // Update X-axis labels to show library names (X-axis appears on left after rotation)
+    const xAxis = surface.xAxes.get(0);
+    const libraryNames = benchmarkScores.map(s => s.name);
+    xAxis.labelProvider = new SC.TextLabelProvider({
+        labels: libraryNames,
+    });
+
+    // Create a SINGLE column series with all data points
+    // With isRotatedChart: true, X becomes vertical (categories) and Y becomes horizontal (values)
+    const xValues = benchmarkScores.map((_, index) => index); // [0, 1, 2, 3, ...]
+    const yValues = benchmarkScores.map(entry => entry.score);
+
+    const dataSeries = new SC.XyDataSeries(wasmContext, {
+        xValues,
+        yValues,
+        dataSeriesName: 'Benchmark Scores',
+    });
+
+    // Convert hex colors to ARGB integers
+    const colorIntegers = benchmarkScores.map(entry => SciChart.parseColorToUIntArgb(entry.color));
+
+    const columnSeries = new SC.FastColumnRenderableSeries(wasmContext, {
+        dataSeries,
+        fill: '#4083E8', // Default fill (will be overridden by palette provider)
+        stroke: '#4083E8', // Default stroke (will be overridden by palette provider)
+        strokeThickness: 1,
+        opacity: 0.85,
+        cornerRadius: 5, // Rounded corners
+        dataPointWidth: 0.7,
+        paletteProvider: new BenchmarkPaletteProvider(colorIntegers),
+    });
+
+    surface.renderableSeries.add(columnSeries);
+}
+
+// ──────────────────────────────────────────────
+// Custom PaletteProvider for per-column coloring
+// ──────────────────────────────────────────────
+
+class BenchmarkPaletteProvider {
+    constructor(colorIntegers) {
+        this.colorIntegers = colorIntegers;
+    }
+
+    onAttached(parentSeries) {
+        this.parentSeries = parentSeries;
+    }
+
+    onDetached() {
+        this.parentSeries = undefined;
+    }
+
+    overrideFillArgb(xValue, yValue, index, opacity, metadata) {
+        if (index >= 0 && index < this.colorIntegers.length) {
+            return this.colorIntegers[index];
+        }
+        return undefined; // Use default
+    }
+
+    overrideStrokeArgb(xValue, yValue, index, opacity, metadata) {
+        if (index >= 0 && index < this.colorIntegers.length) {
+            return this.colorIntegers[index];
+        }
+        return undefined; // Use default
+    }
 }

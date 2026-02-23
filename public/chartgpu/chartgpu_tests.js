@@ -1154,6 +1154,10 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
     };
 
     const createChart = async () => {
+        if (chartsNum > 32) {
+            console.warn('ChartGPU throws out of GPU memory error at > 32 Charts so we will skip further tests');
+            return false;
+        }
         await waitForChartGPU();
         // Initialize random seed for fair comparison
         fastRandomSeed = 1;
