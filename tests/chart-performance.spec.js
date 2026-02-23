@@ -68,7 +68,7 @@ test.describe('Test each chart library', () => {
             const page = await context.newPage();
 
             await page.goto(`http://localhost:5173/${href}`);
-            await page.waitForSelector('.results-table-ready', { timeout: 300000 });
+            await page.waitForSelector('.results-table-ready', { timeout: 600000 });
 
             // Generate PDF filename from URL - sanitize the href for filename
             const pdfFilename = href.replace(/[^a-zA-Z0-9]/g, '-') + '.pdf';

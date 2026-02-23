@@ -218,17 +218,24 @@ function getMetricLabel() {
         case 'memory': return 'Memory (MB)';
         case 'initialization': return 'Init Time (ms)';
         case 'frames': return 'Total Frames';
+        case 'ingestion': return 'Ingestion Rate (pts/sec)';
         default: return 'Average FPS';
     }
 }
 
-function getMetricValue(result) {
+function getMetricValue(result, testName) {
     if (!result || result.isErrored) return null;
     switch (selectedMetric) {
         case 'fps': return result.averageFPS;
         case 'memory': return result.memory;
         case 'initialization': return result.benchmarkTimeFirstFrame;
         case 'frames': return result.numberOfFrames;
+        case 'ingestion':
+            // Use pre-calculated value if available, otherwise calculate on-the-fly
+            if (result.dataIngestionRate !== undefined && result.dataIngestionRate !== null) {
+                return result.dataIngestionRate;
+            }
+            return calculateDataIngestionRate(result, testName);
         default: return result.averageFPS;
     }
 }
@@ -328,6 +335,7 @@ function buildFilterPanel(rsLabelMap, libSet) {
             <label><input type="radio" name="metric" value="memory" ${selectedMetric === 'memory' ? 'checked' : ''}> Memory (MB)</label>
             <label><input type="radio" name="metric" value="initialization" ${selectedMetric === 'initialization' ? 'checked' : ''}> Init Time (ms)</label>
             <label><input type="radio" name="metric" value="frames" ${selectedMetric === 'frames' ? 'checked' : ''}> Total Frames</label>
+            <label><input type="radio" name="metric" value="ingestion" ${selectedMetric === 'ingestion' ? 'checked' : ''}> Ingestion Rate (pts/sec)</label>
         `;
 
         // Add event listeners for metric selection
@@ -394,11 +402,14 @@ function onChartTypeChange(e) {
 
 function onMetricChange(e) {
     selectedMetric = e.target.value;
-    // Update Y-axis titles for all charts
-    for (const [, info] of surfaceMap) {
+    const metricLabel = getMetricLabel();
+    // Update Y-axis titles and chart titles for all charts
+    for (const [testKey, info] of surfaceMap) {
         const { surface } = info;
         const yAxis = surface.yAxes.get(0);
-        yAxis.axisTitle = getMetricLabel();
+        yAxis.axisTitle = metricLabel;
+        const testName = E_TEST_NAME[testKey];
+        surface.title = `${testName} — ${metricLabel}`;
     }
     // Update chart series with new metric
     updateAllChartSeries();
@@ -481,7 +492,7 @@ async function createAllSurfaces(container) {
 
         const { sciChartSurface, wasmContext } = await SC.SciChartSurface.create(divId, {
             theme: new SC.SciChartJSLightTheme(),
-            title: testName,
+            title: `${testName} — ${getMetricLabel()}`,
             titleStyle: {
                 fontSize: 16,
                 color: "#333",
@@ -778,7 +789,7 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
 
             results.forEach((r) => {
                 if (!r.config || r.isErrored) return;
-                const metricValue = getMetricValue(r);
+                const metricValue = getMetricValue(r, testName);
                 if (metricValue === null || metricValue === undefined) return;
                 const key = configKey(r.config);
                 const idx = categoryKeys.indexOf(key);

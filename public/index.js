@@ -18,25 +18,32 @@ function getMetricLabel() {
         case 'memory': return 'Memory (MB)';
         case 'initialization': return 'Init Time (ms)';
         case 'frames': return 'Total Frames';
+        case 'ingestion': return 'Ingestion Rate (pts/sec)';
         default: return 'Avg FPS';
     }
 }
 
-function getMetricValue(result) {
+function getMetricValue(result, testName) {
     if (!result || result.isErrored) return null;
     switch (selectedMetric) {
         case 'fps': return result.averageFPS;
         case 'memory': return result.memory;
         case 'initialization': return result.benchmarkTimeFirstFrame;
         case 'frames': return result.numberOfFrames;
+        case 'ingestion':
+            // Use pre-calculated value if available, otherwise calculate on-the-fly
+            if (result.dataIngestionRate !== undefined && result.dataIngestionRate !== null) {
+                return result.dataIngestionRate;
+            }
+            return calculateDataIngestionRate(result, testName);
         default: return result.averageFPS;
     }
 }
 
 function isMetricHigherBetter() {
-    // FPS and frames: higher is better
+    // FPS, frames, and ingestion: higher is better
     // Memory and initialization: lower is better
-    return selectedMetric === 'fps' || selectedMetric === 'frames';
+    return selectedMetric === 'fps' || selectedMetric === 'frames' || selectedMetric === 'ingestion';
 }
 
 function formatMetricValue(value) {
@@ -46,6 +53,12 @@ function formatMetricValue(value) {
         case 'memory': return value.toFixed(0);
         case 'initialization': return value.toFixed(2);
         case 'frames': return Math.round(value).toString();
+        case 'ingestion':
+            // Format with K, M, B suffixes for readability
+            if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
+            if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
+            if (value >= 1e3) return (value / 1e3).toFixed(2) + 'K';
+            return value.toFixed(0);
         default: return value.toFixed(2);
     }
 }
@@ -181,6 +194,7 @@ function buildFilterPanel(rsIdSet, libSet) {
             <label><input type="radio" name="metric" value="memory" ${selectedMetric === 'memory' ? 'checked' : ''}> Memory (MB)</label>
             <label><input type="radio" name="metric" value="initialization" ${selectedMetric === 'initialization' ? 'checked' : ''}> Init Time (ms)</label>
             <label><input type="radio" name="metric" value="frames" ${selectedMetric === 'frames' ? 'checked' : ''}> Total Frames</label>
+            <label><input type="radio" name="metric" value="ingestion" ${selectedMetric === 'ingestion' ? 'checked' : ''}> Ingestion Rate (pts/sec)</label>
         `;
 
         // Add event listeners for metric selection
@@ -766,9 +780,12 @@ function createResultsTable(testName, testResults) {
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
     table.style.width = '100%';
+    table.style.tableLayout = 'fixed';
     table.style.marginBottom = '20px';
 
     const visibleCharts = CHARTS.filter((c) => checkedLibraries.has(c.name));
+    const paramsColWidth = 15;
+    const libColWidth = visibleCharts.length > 0 ? (100 - paramsColWidth) / visibleCharts.length : 85;
 
     // Create header row
     const headerRow = table.insertRow();
@@ -780,13 +797,16 @@ function createResultsTable(testName, testResults) {
     paramsHeader.style.border = '1px solid #ccc';
     paramsHeader.style.padding = '8px';
     paramsHeader.style.textAlign = 'left';
+    paramsHeader.style.width = `${paramsColWidth}%`;
 
     visibleCharts.forEach((chart) => {
         const cell = headerRow.insertCell();
-        cell.textContent = `${chart.name} (${getMetricLabel()})`;
+        cell.textContent = `${chart.name} ${getMetricLabel()}`;
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
+        cell.style.width = `${libColWidth}%`;
+        cell.style.fontSize = '14px';
     });
 
     // Get all possible parameter combinations from test configurations
@@ -1000,7 +1020,7 @@ function createResultsTable(testName, testResults) {
     Object.values(testResults).forEach((results) => {
         if (results && Array.isArray(results)) {
             results.forEach((result) => {
-                const value = getMetricValue(result);
+                const value = getMetricValue(result, testName);
                 if (value !== null && value !== undefined && value > 0) {
                     allMetricValues.push(value);
                 }
@@ -1058,7 +1078,7 @@ function createResultsTable(testName, testResults) {
                         cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
                     } else {
-                        metricValue = getMetricValue(matchingResult);
+                        metricValue = getMetricValue(matchingResult, testName);
                     }
                 }
             }
@@ -1082,6 +1102,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
     table.style.width = '100%';
+    table.style.tableLayout = 'fixed';
     table.style.marginBottom = '20px';
 
     // Build column definitions: one per (resultSet, library) pair that has data
@@ -1117,11 +1138,15 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
     headerRow.style.backgroundColor = '#f0f0f0';
     headerRow.style.fontWeight = 'bold';
 
+    const paramsColWidth = 15;
+    const libColWidth = columns.length > 0 ? (100 - paramsColWidth) / columns.length : 85;
+
     const paramsHeader = headerRow.insertCell();
     paramsHeader.textContent = 'Parameters';
     paramsHeader.style.border = '1px solid #ccc';
     paramsHeader.style.padding = '8px';
     paramsHeader.style.textAlign = 'left';
+    paramsHeader.style.width = `${paramsColWidth}%`;
 
     // Check if there's only one result set — if so, omit the bracket suffix
     const uniqueRsIds = new Set(columns.map((c) => c.rsId));
@@ -1130,11 +1155,12 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
     columns.forEach((col) => {
         const cell = headerRow.insertCell();
         const metricLabel = getMetricLabel();
-        cell.textContent = singleResultSet ? `${col.shortName} (${metricLabel})` : `${col.shortName} [${col.rsLabel}]`;
+        cell.textContent = singleResultSet ? `${col.shortName} ${metricLabel}` : `${col.shortName} [${col.rsLabel}]`;
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
-        cell.style.fontSize = '12px';
+        cell.style.fontSize = '14px';
+        cell.style.width = `${libColWidth}%`;
     });
 
     // Collect parameter combinations from all columns
@@ -1165,7 +1191,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
         const results = testResultsByRs[col.rsId]?.[col.libName];
         if (results && Array.isArray(results)) {
             results.forEach((r) => {
-                const value = getMetricValue(r);
+                const value = getMetricValue(r, testName);
                 if (value !== null && value !== undefined && value > 0) {
                     allMetricValues.push(value);
                 }
@@ -1215,7 +1241,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
                         cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
                     } else {
-                        metricValue = getMetricValue(match);
+                        metricValue = getMetricValue(match, testName);
                     }
                 }
             }
@@ -1263,8 +1289,8 @@ function getFpsHeatmapColor(value, minValue, maxValue) {
         } else {
             normalised = 1 - ((value - minValue) / (maxValue - minValue));
         }
-    } else if (selectedMetric === 'frames') {
-        // Total Frames: higher is better
+    } else if (selectedMetric === 'frames' || selectedMetric === 'ingestion') {
+        // Total Frames and Ingestion Rate: higher is better
         // min in table (0 or lowest) = red (0), max in table = green (1)
         if (maxValue === minValue) {
             normalised = 0.5;

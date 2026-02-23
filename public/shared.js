@@ -688,3 +688,129 @@ function calculateBenchmarkScore(testResults, allParamCombos) {
     // Return weighted average
     return totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
 }
+
+// ──────────────────────────────────────────────
+// Data Ingestion Rate Calculation
+// ──────────────────────────────────────────────
+
+function detectTestType(testName) {
+    // Static tests: data loaded once at initialization
+    if (
+        testName === E_TEST_NAME.N_X_M || // Line multi-series
+        testName === E_TEST_NAME.COLUMN ||
+        testName === E_TEST_NAME.CANDLESTICK ||
+        testName === E_TEST_NAME.MOUNTAIN
+    ) {
+        return 'static';
+    }
+
+    // Realtime regenerate: all data regenerated each frame
+    if (
+        testName === E_TEST_NAME.SCATTER ||
+        testName === E_TEST_NAME.LINE ||
+        testName === E_TEST_NAME.POINT_LINE ||
+        testName === E_TEST_NAME.POINTCLOUD_3D ||
+        testName === E_TEST_NAME.SURFACE_3D
+    ) {
+        return 'realtime-regenerate';
+    }
+
+    // Streaming: incremental append each frame
+    if (
+        testName === E_TEST_NAME.FIFO ||
+        testName === E_TEST_NAME.SERIES_COMPRESSION ||
+        testName === E_TEST_NAME.MULTI_CHART
+    ) {
+        return 'streaming';
+    }
+
+    // Heatmap: 2D matrix
+    if (testName === E_TEST_NAME.HEATMAP) {
+        return 'heatmap';
+    }
+
+    return 'unknown';
+}
+
+function calculateDataIngestionRate(result, testName) {
+    if (!result || !result.config) return null;
+
+    const config = result.config;
+    const series = config.series || 1;
+    const points = config.points || 0;
+    const increment = config.increment || 0;
+    const charts = config.charts || 1;
+    const numberOfFrames = result.numberOfFrames || 0;
+    const benchmarkTimeFirstFrame = result.benchmarkTimeFirstFrame || 0;
+    const updateFramesTime = result.updateFramesTime || 0;
+    const totalDatapointsProcessed = result.totalDatapointsProcessed;
+
+    // Detect test type from test name if provided
+    let testType = 'unknown';
+    if (testName) {
+        testType = detectTestType(testName);
+    }
+
+    // Calculate based on test type
+    if (testType === 'static') {
+        // Static tests: calculate from total initialization time (time to first rendered frame)
+        // Formula: (series × points × charts) / benchmarkTimeFirstFrame × 1000
+        if (benchmarkTimeFirstFrame > 0) {
+            return (series * points * charts) / benchmarkTimeFirstFrame * 1000;
+        }
+        return null;
+    }
+
+    // FIFO test: special handling because updateChart returns cumulative totals
+    // We need to calculate actual datapoints: initial + (increment per frame × frames)
+    if (testType === 'streaming' && testName === E_TEST_NAME.FIFO) {
+        if (updateFramesTime > 0 && numberOfFrames > 0 && increment > 0) {
+            // Total datapoints = initial data + incremental data added across all frames
+            const initialDatapoints = series * points * charts;
+            const incrementalDatapoints = increment * series * numberOfFrames * charts;
+            const totalDatapoints = initialDatapoints + incrementalDatapoints;
+            return totalDatapoints / updateFramesTime * 1000;
+        }
+    }
+
+    // Series Compression test: updateChart returns the cumulative dataSeries.count(), not the
+    // per-frame delta. Calculate ingestion rate from the final total count divided by test duration.
+    if (testType === 'streaming' && testName === E_TEST_NAME.SERIES_COMPRESSION) {
+        if (updateFramesTime > 0 && numberOfFrames > 0) {
+            const initialDatapoints = series * points;
+            const incrementalDatapoints = increment * series * numberOfFrames;
+            const finalTotalCount = initialDatapoints + incrementalDatapoints;
+            return finalTotalCount / updateFramesTime * 1000;
+        }
+    }
+
+    // Dynamic tests: use totalDatapointsProcessed if available (the actual tracked datapoints)
+    // This is the preferred method for all dynamic tests as it reflects actual data throughput
+    if (totalDatapointsProcessed !== undefined && totalDatapointsProcessed !== null &&
+        updateFramesTime > 0) {
+        return totalDatapointsProcessed / updateFramesTime * 1000;
+    }
+
+    // Fallback formulas for dynamic tests if totalDatapointsProcessed is not available
+    if (testType === 'realtime-regenerate') {
+        // Realtime regenerate: all data regenerated each frame
+        // Formula: (series × points × numberOfFrames) / updateFramesTime × 1000
+        if (updateFramesTime > 0 && numberOfFrames > 0) {
+            return (series * points * numberOfFrames) / updateFramesTime * 1000;
+        }
+    } else if (testType === 'streaming') {
+        // Streaming: incremental append
+        // Formula: (increment × series × numberOfFrames × charts) / updateFramesTime × 1000
+        if (updateFramesTime > 0 && numberOfFrames > 0 && increment > 0) {
+            return (increment * series * numberOfFrames * charts) / updateFramesTime * 1000;
+        }
+    } else if (testType === 'heatmap') {
+        // Heatmap: 2D matrix (points = side length, so total cells = points × points)
+        // Formula: (points × points × numberOfFrames) / updateFramesTime × 1000
+        if (updateFramesTime > 0 && numberOfFrames > 0) {
+            return (points * points * numberOfFrames) / updateFramesTime * 1000;
+        }
+    }
+
+    return null;
+}
