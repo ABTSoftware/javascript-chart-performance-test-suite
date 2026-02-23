@@ -773,6 +773,17 @@ function calculateDataIngestionRate(result, testName) {
         }
     }
 
+    // Series Compression test: updateChart returns the cumulative dataSeries.count(), not the
+    // per-frame delta. Calculate ingestion rate from the final total count divided by test duration.
+    if (testType === 'streaming' && testName === E_TEST_NAME.SERIES_COMPRESSION) {
+        if (updateFramesTime > 0 && numberOfFrames > 0) {
+            const initialDatapoints = series * points;
+            const incrementalDatapoints = increment * series * numberOfFrames;
+            const finalTotalCount = initialDatapoints + incrementalDatapoints;
+            return finalTotalCount / updateFramesTime * 1000;
+        }
+    }
+
     // Dynamic tests: use totalDatapointsProcessed if available (the actual tracked datapoints)
     // This is the preferred method for all dynamic tests as it reflects actual data throughput
     if (totalDatapointsProcessed !== undefined && totalDatapointsProcessed !== null &&
