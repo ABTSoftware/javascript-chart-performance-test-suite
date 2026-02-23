@@ -27,12 +27,23 @@ This Test suite performs JavaScript Chart stress tests and compares the followin
 - Chart.js
 - Apache eCharts (with GL series types where available)
 - uPlot
+- ChartGPU
+- LightningChart (LCJS)*
 
-## Important Methodology Notes
+> LightningChart.js (LCJS) v4.2.2 was chosen for the test, as this is the latest version which has a community license and does not require a downloadable trial key. The latest version (v8) may achieve different results. 
+
+## Important Methodology Notes & Metrics
+
+The test suite records a number of metrics which are stored in IndexedDB. These can be run as a batch (see Playwright instructions below) and imported, or run one by one via the UI.
 
 - FPS is measured visually and via requestAnimationFrame where applicable.
-- `performance.memory.usedJSHeapSize` for memory consumption is not available in all browsers.
-- Some libraries may report high rAF rates while rendering visually lags or other large delays on initialisation.
+- Initialisation Time is measured as the time from start of the test to first render (time to first render, milliseconds)
+- Memory is recorded via `performance.memory.usedJSHeapSize`. This is only available in the Chromium browsers
+- Data ingestion rate is calculated on a per-test basis: e.g. for static tests Data Ingestion Rate = numberOfPoints / timeToFirstRender. For dynamic tests, its numberOfPointsPerFrame * FPS.
+- Total frames is output as a metric
+
+Notes: 
+- Some libraries may report high rAF rates while rendering visually lags or other large delays on initialisation, e.g. Chart.js.
 - Browser crashes, hangs, or skipped tests are considered failures.
 - All test results are logged to IndexedDB and displayed on the homepage (refresh page to view)
 
@@ -424,6 +435,8 @@ Playwright setup: `npx playwright install`
 - `npm run test` - default runs tests in headless mode
 - `npm run test:headed` - runs tests in headed mode
 - *Playwright UI Mode*: run either of scripts with `-- --ui`, e.g. `npm run test:headed -- --ui`
+
+Playwright outputs PDFs with results and also a JSON file that can be imported via the UI to visualise results in tables/charts.
 
 ## Modifying the Test Suite 
 
