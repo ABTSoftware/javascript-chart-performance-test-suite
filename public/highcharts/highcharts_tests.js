@@ -355,7 +355,7 @@ function eScatterLinePerformanceTest(seriesNum, pointsNum) {
             name: 'series',
             data: DATA,
         });
-        return chart.series[0].data.length;
+        return DATA.length;
     };
 
     const deleteChart = () => {};
@@ -460,7 +460,7 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
             name: 'series',
             data: DATA,
         });
-        return chart.series[0].data.length;
+        return DATA.length;
     };
 
     const deleteChart = () => {};
