@@ -947,14 +947,14 @@ function createResultsTable(testName, testResults) {
         10: {
             name: 'Multi Chart Performance Test',
             tests: [
-                { series: 1, points: 10000, charts: 1 },
-                { series: 1, points: 10000, charts: 2 },
-                { series: 1, points: 10000, charts: 4 },
-                { series: 1, points: 10000, charts: 8 },
-                { series: 1, points: 10000, charts: 16 },
-                { series: 1, points: 10000, charts: 32 },
-                { series: 1, points: 10000, charts: 64 },
-                { series: 1, points: 10000, charts: 128 },
+                { series: 1, points: 100000, charts: 1 },
+                { series: 1, points: 100000, charts: 2 },
+                { series: 1, points: 100000, charts: 4 },
+                { series: 1, points: 100000, charts: 8 },
+                { series: 1, points: 100000, charts: 16 },
+                { series: 1, points: 100000, charts: 32 },
+                { series: 1, points: 100000, charts: 64 },
+                { series: 1, points: 100000, charts: 128 },
             ],
         },
         11: {
