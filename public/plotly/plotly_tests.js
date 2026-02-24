@@ -111,7 +111,7 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eScatterPerformanceTest(seriesNum, pointsNum) {
+function eScatterPerformanceTest(seriesNum, pointsNum, divId = 'chart-root') {
     let DATA;
     let CHART;
     const X_MAX = 100;
@@ -131,7 +131,7 @@ function eScatterPerformanceTest(seriesNum, pointsNum) {
     };
 
     const createChart = async () => {
-        CHART = document.getElementById('chart-root');
+        CHART = document.getElementById(divId);
         Plotly.newPlot(CHART, [], layout);
     };
 
@@ -389,7 +389,7 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eColumnPerformanceTest(seriesNum, pointsNum) {
+function eColumnPerformanceTest(seriesNum, pointsNum, divId = 'chart-root') {
     let DATA;
     let CHART;
     let delta;
@@ -401,7 +401,7 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
     };
 
     const createChart = async () => {
-        CHART = document.getElementById('chart-root');
+        CHART = document.getElementById(divId);
         Plotly.newPlot(CHART, [], layout);
     };
 
@@ -649,7 +649,7 @@ function eFifoEcgPerformanceTest(seriesNum, pointsNum, incrementPoints) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eMountainPerformanceTest(seriesNum, pointsNum) {
+function eMountainPerformanceTest(seriesNum, pointsNum, divId = 'chart-root') {
     let DATA;
     let CHART;
     let delta;
@@ -661,7 +661,7 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
     };
 
     const createChart = async () => {
-        CHART = document.getElementById('chart-root');
+        CHART = document.getElementById(divId);
         Plotly.newPlot(CHART, [], layout);
     };
 
@@ -725,14 +725,14 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
  * @param incrementPoints
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eSeriesCompressionPerformanceTest(_seriesNum, pointsNum, incrementPoints) {
+function eSeriesCompressionPerformanceTest(_seriesNum, pointsNum, incrementPoints, divId = 'chart-root') {
     let DATA;
     let CHART;
     let size = 0;
     let prevYValue = 0;
 
     const createChart = async () => {
-        CHART = document.getElementById('chart-root');
+        CHART = document.getElementById(divId);
         Plotly.newPlot(
             CHART,
             [],
@@ -799,13 +799,16 @@ function eSeriesCompressionPerformanceTest(_seriesNum, pointsNum, incrementPoint
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
 function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chartsNum) {
-    let chartDivs = [];
-    let DATA;
-    let size = 0;
-    let prevYValue = 0;
     const chartRootDiv = document.getElementById('chart-root');
+    let handlers = [];
 
-    // Calculate grid dimensions based on number of charts
+    const CHART_TYPES = ['line', 'scatter', 'column', 'mountain'];
+    const getChartTypeForSlot = (idx, total) => {
+        if (total === 1) return 'line';
+        if (total === 2) return idx === 0 ? 'line' : 'scatter';
+        return CHART_TYPES[idx % 4];
+    };
+
     const getGridDimensions = (numCharts) => {
         if (numCharts === 1) return { cols: 1, rows: 1 };
         if (numCharts === 2) return { cols: 2, rows: 1 };
@@ -815,25 +818,21 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
         if (numCharts === 32) return { cols: 8, rows: 4 };
         if (numCharts === 64) return { cols: 8, rows: 8 };
         if (numCharts === 128) return { cols: 16, rows: 8 };
-        // Fallback for other numbers
         const cols = Math.ceil(Math.sqrt(numCharts));
         const rows = Math.ceil(numCharts / cols);
         return { cols, rows };
     };
 
     const createChart = async () => {
-        // Initialise random seed for fair comparison
         fastRandomSeed = 1;
 
-        // Clear the chart root
         chartRootDiv.innerHTML = '';
+        chartRootDiv.style.position = 'relative';
 
-        // Get grid dimensions
         const { cols, rows } = getGridDimensions(chartsNum);
         const chartWidth = 100 / cols;
         const chartHeight = 100 / rows;
 
-        // Create container divs for each chart in grid layout
         for (let c = 0; c < chartsNum; c++) {
             const chartDiv = document.createElement('div');
             chartDiv.id = `chart-${c}`;
@@ -843,80 +842,36 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
             chartDiv.style.left = `${(c % cols) * chartWidth}%`;
             chartDiv.style.top = `${Math.floor(c / cols) * chartHeight}%`;
             chartRootDiv.appendChild(chartDiv);
-            chartDivs.push(chartDiv);
         }
 
-        // Set chart root to use absolute positioning
-        chartRootDiv.style.position = 'relative';
-
-        // Create each chart
-        try {
-            for (let c = 0; c < chartsNum; c++) {
-                Plotly.newPlot(
-                    `chart-${c}`,
-                    [],
-                    {
-                        margin: { t: 0 },
-                        showlegend: false,
-                        hovermode: false,
-                    },
-                    { displayModeBar: false }
-                );
-            }
-        } catch (error) {
-            console.error('Failed to create charts:', error);
-            if (error.message && error.message.includes('WebGL context')) {
-                return 'CONTEXT_LIMIT';
-            }
-            return false;
-        }
-    };
-
-    const generateDataInner = (pointsNum$, startIndex = 0) => {
-        const xArr = [];
-        const yArr = [];
-        for (let i = 0; i < pointsNum$; i++) {
-            const curYValue = fastRandom() * 10 - 5;
-            prevYValue += curYValue;
-            xArr.push(startIndex + i);
-            yArr.push(prevYValue);
-        }
-        return { xArr, yArr };
-    };
-
-    const generateData = () => {
-        DATA = generateDataInner(pointsNum);
-    };
-
-    const appendData = () => {
-        const { xArr, yArr } = DATA;
-        
-        // Add data to each chart
+        handlers = [];
         for (let c = 0; c < chartsNum; c++) {
-            Plotly.addTraces(`chart-${c}`, [{ 
-                type: 'scattergl',
-                mode: 'lines',
-                x: xArr, 
-                y: yArr 
-            }]);
+            const type = getChartTypeForSlot(c, chartsNum);
+            const slotDivId = `chart-${c}`;
+            let h;
+            switch (type) {
+                case 'line':     h = eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints, slotDivId); break;
+                case 'scatter':  h = eScatterPerformanceTest(seriesNum, pointsNum, slotDivId); break;
+                case 'column':   h = eColumnPerformanceTest(seriesNum, pointsNum, slotDivId); break;
+                case 'mountain': h = eMountainPerformanceTest(seriesNum, pointsNum, slotDivId); break;
+            }
+            handlers.push(h);
+            await h.createChart();
         }
-        size += pointsNum;
     };
+
+    const generateData = () => handlers.forEach(h => h.generateData());
+    const appendData = () => handlers.forEach(h => h.appendData());
 
     const updateChart = (_frame) => {
-        const { xArr, yArr } = generateDataInner(incrementPoints, size);
-        
-        // Update all charts with the same data
-        for (let c = 0; c < chartsNum; c++) {
-            Plotly.extendTraces(`chart-${c}`, { x: [xArr], y: [yArr]}, [0]);
-        }
-        
-        size += incrementPoints;
-        return document.getElementById('chart-0').data[0].x.length;
+        let total = 0;
+        handlers.forEach(h => { total += (h.updateChart(_frame) || 0); });
+        return total;
     };
 
     const deleteChart = () => {
-        chartDivs = [];
+        handlers.forEach(h => h.deleteChart());
+        handlers = [];
     };
 
     return {

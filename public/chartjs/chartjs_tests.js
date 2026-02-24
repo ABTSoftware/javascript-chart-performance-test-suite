@@ -150,7 +150,7 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eScatterPerformanceTest(seriesNum, pointsNum) {
+function eScatterPerformanceTest(seriesNum, pointsNum, elementId = 'chartjs-root') {
     let CHART;
     let DATA;
 
@@ -176,7 +176,7 @@ function eScatterPerformanceTest(seriesNum, pointsNum) {
                 maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chartjs-root'), config);
+        CHART = new Chart(document.getElementById(elementId), config);
     };
 
     const generateNextPoints = (pointsNum$, data) => {
@@ -434,7 +434,7 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eColumnPerformanceTest(seriesNum, pointsNum) {
+function eColumnPerformanceTest(seriesNum, pointsNum, elementId = 'chartjs-root') {
     let CHART;
     let DATA;
     let delta;
@@ -470,7 +470,7 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
                 maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chartjs-root'), config);
+        CHART = new Chart(document.getElementById(elementId), config);
     };
 
     const generateData = () => {
@@ -734,7 +734,7 @@ function eFifoEcgPerformanceTest(seriesNum, pointsNum, incrementPoints) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eMountainPerformanceTest(seriesNum, pointsNum) {
+function eMountainPerformanceTest(seriesNum, pointsNum, elementId = 'chartjs-root') {
     let CHART;
     let DATA;
     let delta;
@@ -771,7 +771,7 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
                 maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chartjs-root'), config);
+        CHART = new Chart(document.getElementById(elementId), config);
     };
 
     const generateData = () => {
@@ -843,7 +843,7 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints) {
+function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints, elementId = 'chartjs-root') {
     let CHART;
     let DATA;
     let prevYValue = 0;
@@ -874,7 +874,7 @@ function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints
                 maintainAspectRatio: false
             },
         };
-        CHART = new Chart(document.getElementById('chartjs-root'), config);
+        CHART = new Chart(document.getElementById(elementId), config);
     };
 
     const generateDataInner = (pointsNum$, startIndex) => {
@@ -935,13 +935,16 @@ function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
 function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chartsNum) {
-    let CHARTS = [];
-    let DATA;
-    let prevYValue = 0;
-    const appendCount = incrementPoints;
     const chartRootDiv = document.getElementById('chart-root');
+    let handlers = [];
 
-    // Calculate grid dimensions based on number of charts
+    const CHART_TYPES = ['line', 'scatter', 'column', 'mountain'];
+    const getChartTypeForSlot = (idx, total) => {
+        if (total === 1) return 'line';
+        if (total === 2) return idx === 0 ? 'line' : 'scatter';
+        return CHART_TYPES[idx % 4];
+    };
+
     const getGridDimensions = (numCharts) => {
         if (numCharts === 1) return { cols: 1, rows: 1 };
         if (numCharts === 2) return { cols: 2, rows: 1 };
@@ -951,25 +954,21 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
         if (numCharts === 32) return { cols: 8, rows: 4 };
         if (numCharts === 64) return { cols: 8, rows: 8 };
         if (numCharts === 128) return { cols: 16, rows: 8 };
-        // Fallback for other numbers
         const cols = Math.ceil(Math.sqrt(numCharts));
         const rows = Math.ceil(numCharts / cols);
         return { cols, rows };
     };
 
     const createChart = async () => {
-        // Initialise random seed for fair comparison
         fastRandomSeed = 1;
 
-        // Clear the chart root
         chartRootDiv.innerHTML = '';
+        chartRootDiv.style.position = 'relative';
 
-        // Get grid dimensions
         const { cols, rows } = getGridDimensions(chartsNum);
         const chartWidth = 100 / cols;
         const chartHeight = 100 / rows;
 
-        // Create container canvases for each chart in grid layout
         for (let c = 0; c < chartsNum; c++) {
             const chartDiv = document.createElement('div');
             chartDiv.id = `chart-${c}`;
@@ -985,94 +984,34 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
             chartRootDiv.appendChild(chartDiv);
         }
 
-        // Create each chart
-        try {
-            for (let c = 0; c < chartsNum; c++) {
-                const config = {
-                    type: 'line',
-                    options: {
-                        plugins: {
-                            legend: {
-                                display: false,
-                            },
-                            tooltip: {
-                                enabled: false,
-                            },
-                        },
-                        elements: {
-                            point: {
-                                radius: 0,
-                            },
-                        },
-                        animation: {
-                            duration: 0,
-                        },
-                        responsive: true,
-                        maintainAspectRatio: false
-                    },
-                };
-                const chart = new Chart(document.getElementById(`chart-canvas-${c}`), config);
-                CHARTS.push(chart);
-            }
-        } catch (error) {
-            console.error('Failed to create charts:', error);
-            // Clean up any created charts
-            CHARTS.forEach(chart => chart?.destroy());
-            CHARTS = [];
-            return false;
-        }
-    };
-
-    const generateDataInner = (pointsNum$, startIndex) => {
-        const labels = [];
-        const data = [];
-
-        for (let i = 0; i < pointsNum$; i++) {
-            const curYValue = fastRandom() * 10 - 5;
-            labels.push(startIndex + i);
-            prevYValue += curYValue;
-            data.push(prevYValue);
-        }
-        return { labels, data };
-    };
-
-    const generateData = () => {
-        DATA = generateDataInner(pointsNum, 0);
-    };
-
-    const appendData = () => {
-        const { labels, data } = DATA;
-        
-        // Add data to each chart
+        handlers = [];
         for (let c = 0; c < chartsNum; c++) {
-            CHARTS[c].data.labels = labels;
-            CHARTS[c].data.datasets = [
-                {
-                    data: data,
-                    borderColor: '#1f4e79',
-                    backgroundColor: '#1f4e79',
-                },
-            ];
-            CHARTS[c].update();
+            const type = getChartTypeForSlot(c, chartsNum);
+            const canvasId = `chart-canvas-${c}`;
+            let h;
+            switch (type) {
+                case 'line':     h = eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints, canvasId); break;
+                case 'scatter':  h = eScatterPerformanceTest(seriesNum, pointsNum, canvasId); break;
+                case 'column':   h = eColumnPerformanceTest(seriesNum, pointsNum, canvasId); break;
+                case 'mountain': h = eMountainPerformanceTest(seriesNum, pointsNum, canvasId); break;
+            }
+            handlers.push(h);
+            await h.createChart();
         }
     };
+
+    const generateData = () => handlers.forEach(h => h.generateData());
+    const appendData = () => handlers.forEach(h => h.appendData());
 
     const updateChart = (_frame) => {
-        const { labels, data } = generateDataInner(appendCount, CHARTS[0].data.datasets[0].data.length);
-        
-        // Update all charts with the same data
-        for (let c = 0; c < chartsNum; c++) {
-            CHARTS[c].data.labels = CHARTS[c].data.labels.concat(labels);
-            CHARTS[c].data.datasets[0].data = CHARTS[c].data.datasets[0].data.concat(data);
-            CHARTS[c].update();
-        }
-        
-        return seriesNum * CHARTS[0].data.datasets[0].data.length * chartsNum;
+        let total = 0;
+        handlers.forEach(h => { total += (h.updateChart(_frame) || 0); });
+        return total;
     };
 
     const deleteChart = () => {
-        CHARTS.forEach(chart => chart?.destroy());
-        CHARTS = [];
+        handlers.forEach(h => h.deleteChart());
+        handlers = [];
     };
 
     return {
