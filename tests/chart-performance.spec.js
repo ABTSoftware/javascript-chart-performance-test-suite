@@ -47,12 +47,32 @@ test.describe('Test each chart library', () => {
         }
     });
 
-    test.afterAll(async () => {
-        // Save storage state (including IndexedDB) for future test runs
+    test.afterEach(async () => {
+        // Save storage state incrementally after each test so partial results are not lost on failure
         if (context) {
-            console.log('Saving storage state to:', storageStatePath);
-            await context.storageState({ path: storageStatePath, indexedDB: true });
-            await context.close();
+            try {
+                await context.storageState({ path: storageStatePath, indexedDB: true });
+                console.log('Storage state saved after test');
+            } catch (error) {
+                console.warn('Failed to save storage state after test:', error.message);
+            }
+        }
+    });
+
+    test.afterAll(async () => {
+        // Save final storage state (including IndexedDB) for future test runs
+        if (context) {
+            try {
+                console.log('Saving final storage state to:', storageStatePath);
+                await context.storageState({ path: storageStatePath, indexedDB: true });
+            } catch (error) {
+                console.warn('Failed to save final storage state:', error.message);
+            }
+            try {
+                await context.close();
+            } catch (error) {
+                console.warn('Failed to close context:', error.message);
+            }
         }
     });
 
@@ -67,24 +87,34 @@ test.describe('Test each chart library', () => {
             console.log(`Test: ${testName} - ${href}`);
             const page = await context.newPage();
 
-            await page.goto(`http://localhost:5173/${href}`);
-            await page.waitForSelector('.results-table-ready', { timeout: 600000 });
+            page.on('crash', () => {
+                console.error(`Page crashed during test: ${testName}`);
+            });
 
-            // Generate PDF filename from URL - sanitize the href for filename
-            const pdfFilename = href.replace(/[^a-zA-Z0-9]/g, '-') + '.pdf';
-            await page.pdf({ path: pdfFilename, format: 'A4' });
-            await page.close();
+            try {
+                await page.goto(`http://localhost:5173/${href}`);
+                await page.waitForSelector('.results-table-ready', { timeout: 600000 });
+
+                // Generate PDF filename from URL - sanitize the href for filename
+                const pdfFilename = href.replace(/[^a-zA-Z0-9]/g, '-') + '.pdf';
+                await page.pdf({ path: pdfFilename, format: 'A4' });
+            } finally {
+                await page.close().catch((e) => console.warn('Error closing page:', e.message));
+            }
         });
     }
 
     test('Results Summary', async () => {
         console.log('refresh summary');
         const page = await context.newPage();
-        await page.goto('http://localhost:5173/');
-        await page.waitForSelector('.results-ready');
+        try {
+            await page.goto('http://localhost:5173/');
+            await page.waitForSelector('.results-ready');
 
-        // Save the initial page as PDF
-        await page.pdf({ path: 'results-summary-page.pdf', format: 'A4' });
-        await page.close()
+            // Save the initial page as PDF
+            await page.pdf({ path: 'results-summary-page.pdf', format: 'A4' });
+        } finally {
+            await page.close().catch((e) => console.warn('Error closing page:', e.message));
+        }
     });
 });
