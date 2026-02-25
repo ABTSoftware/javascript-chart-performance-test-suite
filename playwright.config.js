@@ -14,6 +14,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
     testDir: './tests',
+    timeout: 30000,
     /* Global setup to fetch test URLs before running tests */
     globalSetup: './tests/global-setup.js',
     /* Run tests sequentially, not in parallel */
