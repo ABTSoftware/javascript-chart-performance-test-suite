@@ -272,6 +272,27 @@ async function deleteResultSet(resultSetId) {
     });
 }
 
+async function clearLocalResults() {
+    if (!db) throw new Error('Database not initialized');
+
+    const tx = db.transaction([STORE_NAME], 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+
+    return new Promise((resolve, reject) => {
+        const index = store.index('resultSetId');
+        const cursorReq = index.openCursor(RESERVED_RESULT_SET_LOCAL);
+        cursorReq.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+                cursor.delete();
+                cursor.continue();
+            }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
 function generateResultSetId(label) {
     return label
         .toLowerCase()

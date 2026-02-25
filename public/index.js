@@ -219,18 +219,23 @@ function buildFilterPanel(rsIdSet, libSet) {
         label.appendChild(cb);
         label.appendChild(document.createTextNode(rsLabelMap[rsId] || rsId));
 
-        // Add delete button for non-local result sets
-        if (rsId !== RESERVED_RESULT_SET_LOCAL) {
-            const delBtn = document.createElement('button');
-            delBtn.textContent = '\u00d7';
-            delBtn.className = 'delete-rs-btn';
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '\u00d7';
+        delBtn.className = 'delete-rs-btn';
+        if (rsId === RESERVED_RESULT_SET_LOCAL) {
+            delBtn.title = 'Clear all local results';
+            delBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                handleClearLocalResults();
+            });
+        } else {
             delBtn.title = `Delete "${rsLabelMap[rsId] || rsId}"`;
             delBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 handleDeleteResultSet(rsId, rsLabelMap[rsId] || rsId);
             });
-            label.appendChild(delBtn);
         }
+        label.appendChild(delBtn);
 
         rsContainer.appendChild(label);
     }
@@ -343,6 +348,13 @@ async function handleImport(event) {
 
         const resultSetId = generateResultSetId(label);
 
+        // Never allow importing into the reserved local result set
+        if (resultSetId === RESERVED_RESULT_SET_LOCAL) {
+            alert('"local" is reserved for locally-run tests. Please choose a different label.');
+            event.target.value = '';
+            return;
+        }
+
         // Check for ID collision
         const existing = await getAllResultSets();
         if (existing.some((rs) => rs.id === resultSetId)) {
@@ -382,6 +394,17 @@ async function handleDeleteResultSet(rsId, label) {
     } catch (error) {
         console.error('Delete failed:', error);
         alert('Delete failed: ' + error.message);
+    }
+}
+
+async function handleClearLocalResults() {
+    if (!confirm('Clear all local test results? This cannot be undone.')) return;
+    try {
+        await clearLocalResults();
+        await loadDataAndBuildUI();
+    } catch (error) {
+        console.error('Clear local results failed:', error);
+        alert('Failed to clear local results: ' + error.message);
     }
 }
 
