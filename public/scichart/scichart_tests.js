@@ -69,7 +69,7 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -161,7 +161,7 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eScatterPerformanceTest(seriesNum, pointsNum) {
+function eScatterPerformanceTest(seriesNum, pointsNum, divId = 'chart-root') {
     const {
         SciChartSurface,
         NumericAxis,
@@ -189,7 +189,7 @@ function eScatterPerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create(divId, { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -305,7 +305,7 @@ function eScatterLinePerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -420,7 +420,7 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -504,7 +504,7 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eColumnPerformanceTest(seriesNum, pointsNum) {
+function eColumnPerformanceTest(seriesNum, pointsNum, divId = 'chart-root') {
     const {
         SciChartSurface,
         NumericAxis,
@@ -528,7 +528,7 @@ function eColumnPerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create(divId, { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -618,7 +618,7 @@ function eCandlestickPerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -727,7 +727,7 @@ function eFifoEcgPerformanceTest(seriesNum, pointsNum, incrementPoints) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -815,7 +815,7 @@ function eFifoEcgPerformanceTest(seriesNum, pointsNum, incrementPoints) {
  * @param pointsNum
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eMountainPerformanceTest(seriesNum, pointsNum) {
+function eMountainPerformanceTest(seriesNum, pointsNum, divId = 'chart-root') {
     const {
         SciChartSurface,
         NumericAxis,
@@ -839,7 +839,7 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create(divId, { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface =res.sciChartSurface;
 
@@ -905,7 +905,7 @@ function eMountainPerformanceTest(seriesNum, pointsNum) {
  * @param incrementPoints
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
-function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints) {
+function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints, divId = 'chart-root') {
     const {
         SciChartSurface,
         NumericAxis,
@@ -932,12 +932,12 @@ function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create(divId, { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
         const xAxis = new NumericAxis(wasmContext, { autoRange: EAutoRange.Always, ...lightAxisOptions });
-        
+
         // Format x-labels with commas for easier reading
         xAxis.labelProvider.formatLabel = (dataValue) => dataValue.toLocaleString('en-US', {
             style: 'decimal',
@@ -1016,24 +1016,16 @@ function eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints
  * @returns {{appendData: ()=>void, deleteChart: ()=>void, updateChart: ()=>void, createChart: () => Promise<any>, generateData: () => void}}
  */
 function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chartsNum) {
-    const {
-        SciChartSurface,
-        NumericAxis,
-        XyDataSeries,
-        FastLineRenderableSeries,
-        SciChartDefaults,
-        EAutoRange
-    } = SciChart;
-
-    let wasmContext;
-    let sciChartSurfaces = [];
-    let dataSeries = [];
-    const appendCount = incrementPoints;
-    let prevYValue = 0;
-    let DATA;
     const chartRootDiv = document.getElementById('chart-root');
+    let handlers = [];
 
-    // Calculate grid dimensions based on number of charts
+    const CHART_TYPES = ['line', 'scatter', 'column', 'mountain'];
+    const getChartTypeForSlot = (idx, total) => {
+        if (total === 1) return 'line';
+        if (total === 2) return idx === 0 ? 'line' : 'scatter';
+        return CHART_TYPES[idx % 4];
+    };
+
     const getGridDimensions = (numCharts) => {
         if (numCharts === 1) return { cols: 1, rows: 1 };
         if (numCharts === 2) return { cols: 2, rows: 1 };
@@ -1043,31 +1035,21 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
         if (numCharts === 32) return { cols: 8, rows: 4 };
         if (numCharts === 64) return { cols: 8, rows: 8 };
         if (numCharts === 128) return { cols: 16, rows: 8 };
-        // Fallback for other numbers
         const cols = Math.ceil(Math.sqrt(numCharts));
         const rows = Math.ceil(numCharts / cols);
         return { cols, rows };
     };
 
     const createChart = async () => {
-        // Initialise random seed for fair comparison
         fastRandomSeed = 1;
 
-        SciChartSurface.configure({
-            wasmUrl: '/scichart/lib/scichart2d.wasm',
-            noSimdUrl: '/scichart/lib/scichart2d.no-simd.wasm',
-        });
-        SciChartDefaults.useNativeText = true;
-
-        // Clear the chart root
         chartRootDiv.innerHTML = '';
+        chartRootDiv.style.position = 'relative';
 
-        // Get grid dimensions
         const { cols, rows } = getGridDimensions(chartsNum);
         const chartWidth = 100 / cols;
         const chartHeight = 100 / rows;
 
-        // Create container divs for each chart in grid layout
         for (let c = 0; c < chartsNum; c++) {
             const chartDiv = document.createElement('div');
             chartDiv.id = `chart-${c}`;
@@ -1079,99 +1061,34 @@ function eMultiChartPerformanceTest(seriesNum, pointsNum, incrementPoints, chart
             chartRootDiv.appendChild(chartDiv);
         }
 
-        // Set chart root to use absolute positioning
-        chartRootDiv.style.position = 'relative';
-
-        // Create each chart
+        handlers = [];
         for (let c = 0; c < chartsNum; c++) {
-            const res = await SciChartSurface.create(`chart-${c}`, { loader: false });
-            wasmContext = res.wasmContext;
-            const sciChartSurface = res.sciChartSurface;
-            sciChartSurfaces.push(sciChartSurface);
-
-            const xAxis = new NumericAxis(wasmContext, { 
-                autoRange: EAutoRange.Always, 
-                labelPrecision: 0,
-                ...lightAxisOptions 
-            });
-            
-            sciChartSurface.xAxes.add(xAxis);
-
-            const yAxis = new NumericAxis(wasmContext, { 
-                autoRange: EAutoRange.Always,
-                labelPrecision: 0,
-                ...lightAxisOptions 
-            });
-            sciChartSurface.yAxes.add(yAxis);
-
-            if (chartsNum >= 16) {
-                xAxis.drawLabels = false;
-                yAxis.drawLabels = false;
+            const type = getChartTypeForSlot(c, chartsNum);
+            const slotDivId = `chart-${c}`;
+            let h;
+            switch (type) {
+                case 'line':     h = eSeriesCompressionPerformanceTest(seriesNum, pointsNum, incrementPoints, slotDivId); break;
+                case 'scatter':  h = eScatterPerformanceTest(seriesNum, pointsNum, slotDivId); break;
+                case 'column':   h = eColumnPerformanceTest(seriesNum, pointsNum, slotDivId); break;
+                case 'mountain': h = eMountainPerformanceTest(seriesNum, pointsNum, slotDivId); break;
             }
+            handlers.push(h);
+            await h.createChart();
         }
     };
 
-    const generateDataInner = (pointsNum$, startIndex) => {
-        // Create new arrays each time
-        const xValuesArr = new Float64Array(pointsNum$);
-        const yValuesArr = new Float64Array(pointsNum$);
-
-        // Generate data into new arrays
-        for (let i = 0; i < pointsNum$; i++) {
-            const curYValue = fastRandom() * 10 - 5;
-            xValuesArr[i] = startIndex + i;
-            prevYValue += curYValue;
-            yValuesArr[i] = prevYValue;
-        }
-
-        return { xValuesArr, yValuesArr };
-    };
-
-    const generateData = () => {
-        DATA = generateDataInner(pointsNum, 0);
-    };
-
-    const appendData = () => {
-        const { xValuesArr, yValuesArr } = DATA;
-        
-        // Add data series to each chart
-        for (let c = 0; c < chartsNum; c++) {
-            const ds = new XyDataSeries(wasmContext, {
-                dataIsSortedInX: true,
-                dataEvenlySpaced: true,
-                containsNaN: false,
-            });
-            const series = new FastLineRenderableSeries(wasmContext, {
-                strokeThickness: 2,
-                stroke: '#00FF00',
-                dataSeries: ds,
-            });
-            sciChartSurfaces[c].renderableSeries.add(series);
-            ds.capacity = Math.min(pointsNum * 10, 100000000);
-            ds.appendRange(xValuesArr, yValuesArr);
-            dataSeries.push(ds);
-        }
-    };
+    const generateData = () => handlers.forEach(h => h.generateData());
+    const appendData = () => handlers.forEach(h => h.appendData());
 
     const updateChart = (_frame) => {
-        const { xValuesArr, yValuesArr } = generateDataInner(appendCount, dataSeries[0].count());
-        
-        // Update all charts with the same data
-        for (let c = 0; c < chartsNum; c++) {
-            dataSeries[c].appendRange(xValuesArr, yValuesArr);
-        }
-        
-        // Return total datapoints across all charts: seriesNum * pointsPerChart * chartsNum
-        return seriesNum * dataSeries[0].count() * chartsNum;
+        let total = 0;
+        handlers.forEach(h => { total += (h.updateChart(_frame) || 0); });
+        return total;
     };
 
     const deleteChart = () => {
-        // Delete all charts
-        for (let c = 0; c < chartsNum; c++) {
-            sciChartSurfaces[c]?.delete();
-        }
-        sciChartSurfaces = [];
-        dataSeries = [];
+        handlers.forEach(h => h.deleteChart());
+        handlers = [];
     };
 
     return {
@@ -1520,7 +1437,7 @@ function eHeatmapPerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
+        const res = await SciChartSurface.create('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 

@@ -87,6 +87,22 @@ async function saveTestResults(chartLibrary, testCase, results) {
     if (!testGroup) throw Error('testGroup is undefined, check query string param test_group_id!');
     const testGroupName = testGroup.name;
     const tests = testGroup.tests;
+    const chartLibrary = `${eLibName()} ${eLibVersion()}`;
+
+    // Saves all results accumulated so far to IndexedDB incrementally.
+    // Called after each sub-test so a browser crash preserves prior results.
+    const saveProgress = async (count) => {
+        try {
+            const partialResults = G_RESULT.slice(0, count).map((item) => {
+                const { frameTimings, ...rest } = item;
+                return { ...rest, dataIngestionRate: calculateDataIngestionRate(item, testGroupName) };
+            });
+            await saveTestResults(chartLibrary, testGroupName, partialResults);
+        } catch (err) {
+            console.error('Error saving partial results:', err);
+        }
+    };
+
     for (let i = 0; i < tests.length; i++) {
         /** @type {{ series: number, points: number, testDuration: number, debug: boolean }} */
         const testConfig = tests[i];
@@ -129,6 +145,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
                 // Check if heatmap test is supported
                 if (typeof eHeatmapPerformanceTest === 'undefined') {
                     gTestFinished(i, 0, 0, [], true, 'UNSUPPORTED');
+                    await saveProgress(G_RESULT.length);
                     continue;
                 }
                 perfTest = eHeatmapPerformanceTest(seriesNumber, pointsNumber);
@@ -136,6 +153,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
                 // Check if 3D point cloud test is supported
                 if (typeof e3dPointCloudPerformanceTest === 'undefined') {
                     gTestFinished(i, 0, 0, [], true, 'UNSUPPORTED');
+                    await saveProgress(G_RESULT.length);
                     continue;
                 }
                 perfTest = e3dPointCloudPerformanceTest(seriesNumber, pointsNumber);
@@ -143,6 +161,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
                 // Check if 3D surface test is supported
                 if (typeof e3dSurfacePerformanceTest === 'undefined') {
                     gTestFinished(i, 0, 0, [], true, 'UNSUPPORTED');
+                    await saveProgress(G_RESULT.length);
                     continue;
                 }
                 perfTest = e3dSurfacePerformanceTest(seriesNumber, pointsNumber);
@@ -157,6 +176,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
         const result = await perfTest.createChart();
         if (result === false) {
             gTestFinished(i, 0, 0, [], true, 'SKIPPED');
+            await saveProgress(G_RESULT.length);
             break;
         }
         const libLoadTime = gTestLibLoaded(i);
@@ -177,6 +197,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
                 gSetLibInfo(j, eLibName(), eLibVersion());
                 gTestFinished(j, 0, 0, [], true, 'SKIPPED');
             }
+            await saveProgress(G_RESULT.length);
             break;
         }
 
@@ -205,6 +226,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
                 gSetLibInfo(j, eLibName(), eLibVersion());
                 gTestFinished(j, 0, 0, [], true, 'SKIPPED');
             }
+            await saveProgress(G_RESULT.length);
             break;
         }
         testStartTime = startTime; // Store for stats chart
@@ -345,6 +367,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
 
         // Store totalDatapointsProcessed in the result record
         gGetResultRecord(i).totalDatapointsProcessed = totalDatapointsProcessed;
+        await saveProgress(G_RESULT.length);
 
         // Only show "chart deleted" message after the last test completes
         const isLastTest = i === tests.length - 1;
@@ -370,6 +393,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
                 gSetLibInfo(j, eLibName(), eLibVersion());
                 gTestFinished(j, 0, 0, [], true, 'SKIPPED');
             }
+            await saveProgress(G_RESULT.length);
             break;
         }
 
@@ -398,41 +422,8 @@ async function saveTestResults(chartLibrary, testCase, results) {
     downLoadJsonResult(result, fileName);
     const tableElement = createResultTable(result, testGroupName);
 
-    // Persist results to IndexedDB
-    try {
-        const chartLibrary = `${eLibName()} ${eLibVersion()}`;
-        console.log('=== PERSISTENCE DEBUG START ===');
-        console.log('Chart Library:', chartLibrary);
-        console.log('Test Group Name:', testGroupName);
-        console.log('Result type:', typeof result);
-        console.log('Result is array:', Array.isArray(result));
-        console.log('Result length:', result?.length);
-        console.log('Result sample (first item):', result?.[0]);
-
-        // Create a copy of results without frameTimings for persistence
-        // Calculate dataIngestionRate for each result
-        const resultsForPersistence = result.map((item) => {
-            const { frameTimings, ...itemWithoutFrameTimings } = item;
-            const dataIngestionRate = calculateDataIngestionRate(item, testGroupName);
-            return {
-                ...itemWithoutFrameTimings,
-                dataIngestionRate: dataIngestionRate
-            };
-        });
-
-        console.log('Results for persistence (without frameTimings):', resultsForPersistence);
-
-        console.log('Calling saveTestResults directly...');
-        await saveTestResults(chartLibrary, testGroupName, resultsForPersistence);
-        console.log('saveTestResults completed successfully');
-        console.log('=== PERSISTENCE DEBUG END ===');
-    } catch (error) {
-        console.error('=== PERSISTENCE ERROR ===');
-        console.error('Error during persistence:', error);
-        console.error('Error stack:', error.stack);
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-    }
+    // Persist complete results to IndexedDB (incremental saves already handled each sub-test)
+    await saveProgress(G_RESULT.length);
 
     tableElement?.classList.add('results-table-ready');
 })();
