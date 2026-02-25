@@ -300,8 +300,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         rsLabelMap[rs.id] = rs.label;
     });
 
-    // Initialize filter checkboxes — all checked by default
-    checkedResultSets = new Set(resultSetIds);
+    // Initialize filter state — first result set selected by default
+    checkedResultSets = new Set(resultSetIds.length > 0 ? [resultSetIds[0]] : []);
     checkedLibraries = new Set(libSet);
 
     buildFilterPanel(rsLabelMap, libSet);
@@ -344,15 +344,16 @@ function buildFilterPanel(rsLabelMap, libSet) {
         });
     }
 
-    // Result set checkboxes
-    resultSetIds.forEach((rsId) => {
+    // Result set radio buttons
+    resultSetIds.forEach((rsId, i) => {
         const label = document.createElement('label');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = true;
-        cb.dataset.rsId = rsId;
-        cb.addEventListener('change', onFilterChange);
-        label.appendChild(cb);
+        const rb = document.createElement('input');
+        rb.type = 'radio';
+        rb.name = 'resultSet';
+        rb.checked = i === 0;
+        rb.dataset.rsId = rsId;
+        rb.addEventListener('change', onFilterChange);
+        label.appendChild(rb);
         label.appendChild(document.createTextNode(rsLabelMap[rsId] || rsId));
         rsContainer.appendChild(label);
     });
@@ -379,11 +380,9 @@ function buildFilterPanel(rsLabelMap, libSet) {
 }
 
 function onFilterChange() {
-    // Rebuild checked sets from checkboxes
     checkedResultSets = new Set();
-    document.querySelectorAll('#resultSetFilters input[type="checkbox"]').forEach((cb) => {
-        if (cb.checked) checkedResultSets.add(cb.dataset.rsId);
-    });
+    const checkedRs = document.querySelector('#resultSetFilters input[type="radio"]:checked');
+    if (checkedRs) checkedResultSets.add(checkedRs.dataset.rsId);
 
     checkedLibraries = new Set();
     document.querySelectorAll('#libraryFilters input[type="checkbox"]').forEach((cb) => {
@@ -959,7 +958,7 @@ function updateBenchmarkChart(testName, grouped, surface, wasmContext) {
     allResultSetsData.forEach((rs) => {
         rsLabelMap[rs.id] = rs.label;
     });
-    const multipleResultSets = checkedResultSets.size > 1 || resultSetIds.length > 1;
+    const multipleResultSets = checkedResultSets.size > 1;
 
     // Collect all parameter combinations from this test case
     const allParamCombos = [];
@@ -1030,12 +1029,13 @@ function updateBenchmarkChart(testName, grouped, surface, wasmContext) {
     // Sort by score descending
     benchmarkScores.sort((a, b) => b.score - a.score);
 
-    // Update X-axis labels to show library names (X-axis appears on left after rotation)
+    // Update X-axis labels and range to exactly fit the current bar count
     const xAxis = surface.xAxes.get(0);
     const libraryNames = benchmarkScores.map(s => s.name);
     xAxis.labelProvider = new SC.TextLabelProvider({
         labels: libraryNames,
     });
+    xAxis.visibleRange = new SC.NumberRange(-0.5, libraryNames.length - 0.5);
 
     // Create a SINGLE column series with all data points
     // With isRotatedChart: true, X becomes vertical (categories) and Y becomes horizontal (values)

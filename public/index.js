@@ -208,11 +208,12 @@ function buildFilterPanel(rsIdSet, libSet) {
         rsLabelMap[rs.id] = rs.label;
     });
 
-    // Result set checkboxes
+    // Result set radio buttons
     for (const rsId of rsIdSet) {
         const label = document.createElement('label');
         const cb = document.createElement('input');
-        cb.type = 'checkbox';
+        cb.type = 'radio';
+        cb.name = 'resultSet';
         cb.checked = checkedResultSets.has(rsId);
         cb.dataset.rsId = rsId;
         cb.addEventListener('change', onFilterChange);
@@ -261,9 +262,8 @@ function buildFilterPanel(rsIdSet, libSet) {
 
 function onFilterChange() {
     checkedResultSets = new Set();
-    document.querySelectorAll('#resultSetFilters input[type="checkbox"]').forEach((cb) => {
-        if (cb.checked) checkedResultSets.add(cb.dataset.rsId);
-    });
+    const checkedRs = document.querySelector('#resultSetFilters input[type="radio"]:checked');
+    if (checkedRs) checkedResultSets.add(checkedRs.dataset.rsId);
 
     checkedLibraries = new Set();
     document.querySelectorAll('#libraryFilters input[type="checkbox"]').forEach((cb) => {
