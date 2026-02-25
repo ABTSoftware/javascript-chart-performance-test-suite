@@ -22,8 +22,19 @@ const hrefs = testData.hrefs;
 /** @type {import('@playwright/test').BrowserContext} */
 let context;
 
-// Path to store the browser state (including IndexedDB)
-const storageStatePath = path.join(process.cwd(), 'tests', 'storage-state.json');
+// Generate a timestamped results filename for this run (DD-MM-YY-HH-MM)
+function makeResultsPath() {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yy = String(now.getFullYear()).slice(-2);
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    return path.join(process.cwd(), 'tests', `test-results-${dd}-${mm}-${yy}-${hh}-${min}.json`);
+}
+
+// Fixed at module load time so all saves during this run go to the same file
+const resultsPath = makeResultsPath();
 
 // Configure tests to run serially and share browser context for IndexedDB persistence
 test.describe.configure({ mode: 'serial' });
@@ -31,42 +42,31 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Test each chart library', () => {
     test.beforeAll(async ({ browser }) => {
         console.warn('beforeAll');
-        // Create a persistent context that will be shared across all tests
-        if (!context) {
-            console.warn('get new context');
-
-            // Load existing storage state if it exists
-            /** @type {import('@playwright/test').BrowserContextOptions} */
-            const contextOptions = {};
-            if (fs.existsSync(storageStatePath)) {
-                console.log('Loading existing storage state from:', storageStatePath);
-                contextOptions.storageState = storageStatePath;
-            }
-
-            context = await browser.newContext(contextOptions);
-        }
+        // Each run starts fresh — results are written to a new timestamped file
+        console.log('Results for this run will be saved to:', resultsPath);
+        context = await browser.newContext();
     });
 
     test.afterEach(async () => {
-        // Save storage state incrementally after each test so partial results are not lost on failure
+        // Save results incrementally after each test so partial results are not lost on failure
         if (context) {
             try {
-                await context.storageState({ path: storageStatePath, indexedDB: true });
-                console.log('Storage state saved after test');
+                await context.storageState({ path: resultsPath, indexedDB: true });
+                console.log('Results saved after test');
             } catch (error) {
-                console.warn('Failed to save storage state after test:', error.message);
+                console.warn('Failed to save results after test:', error.message);
             }
         }
     });
 
     test.afterAll(async () => {
-        // Save final storage state (including IndexedDB) for future test runs
+        // Final save then close context
         if (context) {
             try {
-                console.log('Saving final storage state to:', storageStatePath);
-                await context.storageState({ path: storageStatePath, indexedDB: true });
+                console.log('Saving final results to:', resultsPath);
+                await context.storageState({ path: resultsPath, indexedDB: true });
             } catch (error) {
-                console.warn('Failed to save final storage state:', error.message);
+                console.warn('Failed to save final results:', error.message);
             }
             try {
                 await context.close();
