@@ -1,5 +1,5 @@
 // @ts-check
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
@@ -18,10 +18,6 @@ try {
 /** @type {string[]} */
 const hrefs = testData.hrefs;
 
-// Shared context and page for all tests to maintain IndexedDB state
-/** @type {import('@playwright/test').BrowserContext} */
-let context;
-
 // Generate a timestamped results filename for this run (DD-MM-YY-HH-MM)
 function makeResultsPath() {
     const now = new Date();
@@ -36,85 +32,117 @@ function makeResultsPath() {
 // Fixed at module load time so all saves during this run go to the same file
 const resultsPath = makeResultsPath();
 
-// Configure tests to run serially and share browser context for IndexedDB persistence
+// Group hrefs by library (first URL path segment, e.g. 'scichart', 'echarts')
+/** @type {Map<string, string[]>} */
+const libraryGroups = new Map();
+for (const href of hrefs) {
+    const lib = href.split('/').filter(Boolean)[0] ?? 'unknown';
+    if (!libraryGroups.has(lib)) libraryGroups.set(lib, []);
+    libraryGroups.get(lib).push(href);
+}
+
+// Run everything serially — combined with workers:1 in config this guarantees
+// one browser context is fully closed (GPU resources reclaimed) before the next opens
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Test each chart library', () => {
-    test.beforeAll(async ({ browser }) => {
-        console.warn('beforeAll');
-        // Each run starts fresh — results are written to a new timestamped file
-        console.log('Results for this run will be saved to:', resultsPath);
-        context = await browser.newContext();
-    });
+console.log(`Results for this run will be saved to: ${resultsPath}`);
+console.log(`Found ${libraryGroups.size} libraries: ${[...libraryGroups.keys()].join(', ')}`);
 
-    test.afterEach(async () => {
-        // Save results incrementally after each test so partial results are not lost on failure
-        if (context) {
-            try {
-                await context.storageState({ path: resultsPath, indexedDB: true });
-                console.log('Results saved after test');
-            } catch (error) {
-                console.warn('Failed to save results after test:', error.message);
-            }
-        }
-    });
+// ── Per-library describe blocks ────────────────────────────────────────────
+// Each library gets its own browser context. afterAll closes the context which
+// terminates the renderer process and deterministically reclaims WebGL / GPU memory
+// before the next library starts.
 
-    test.afterAll(async () => {
-        // Final save then close context
-        if (context) {
-            try {
-                console.log('Saving final results to:', resultsPath);
-                await context.storageState({ path: resultsPath, indexedDB: true });
-            } catch (error) {
-                console.warn('Failed to save final results:', error.message);
-            }
-            try {
-                await context.close();
-            } catch (error) {
-                console.warn('Failed to close context:', error.message);
-            }
-        }
-    });
+for (const [lib, libHrefs] of libraryGroups) {
+    test.describe(lib, () => {
+        /** @type {import('@playwright/test').BrowserContext} */
+        let context;
 
-    for (const href of hrefs) {
-        // Generate test name from URL - trim first segment
-        const urlParts = href.split('/').filter((part) => part.length > 0);
-        const testName = urlParts.slice(1).join('/') || href;
+        test.beforeAll(async ({ browser }) => {
+            console.log(`[${lib}] Creating browser context (${libHrefs.length} tests)`);
+            // Load accumulated results from earlier libraries in this run
+            const contextOptions = fs.existsSync(resultsPath)
+                ? { storageState: resultsPath }
+                : {};
+            context = await browser.newContext(contextOptions);
+        });
 
-        test(testName, async () => {
-            test.setTimeout(300000);
-
-            console.log(`Test: ${testName} - ${href}`);
-            const page = await context.newPage();
-
-            page.on('crash', () => {
-                console.error(`Page crashed during test: ${testName}`);
-            });
-
-            try {
-                await page.goto(`http://localhost:5173/${href}`);
-                await page.waitForSelector('.results-table-ready', { timeout: 600000 });
-
-                // Generate PDF filename from URL - sanitize the href for filename
-                const pdfFilename = href.replace(/[^a-zA-Z0-9]/g, '-') + '.pdf';
-                await page.pdf({ path: pdfFilename, format: 'A4' });
-            } finally {
-                await page.close().catch((e) => console.warn('Error closing page:', e.message));
+        test.afterEach(async () => {
+            // Incremental save — preserves results even if a later test crashes the page
+            if (context) {
+                try {
+                    await context.storageState({ path: resultsPath, indexedDB: true });
+                } catch (error) {
+                    console.warn(`[${lib}] Failed to save results after test:`, error.message);
+                }
             }
         });
-    }
 
-    test('Results Summary', async () => {
-        console.log('refresh summary');
-        const page = await context.newPage();
+        test.afterAll(async () => {
+            if (context) {
+                // Save first, then destroy — context.close() wipes IndexedDB from memory
+                try {
+                    await context.storageState({ path: resultsPath, indexedDB: true });
+                    console.log(`[${lib}] Results saved`);
+                } catch (error) {
+                    console.warn(`[${lib}] Failed to save final results:`, error.message);
+                }
+                try {
+                    await context.close();
+                    console.log(`[${lib}] Context closed — GPU resources reclaimed`);
+                } catch (error) {
+                    console.warn(`[${lib}] Failed to close context:`, error.message);
+                }
+                context = undefined;
+            }
+        });
+
+        for (const href of libHrefs) {
+            const urlParts = href.split('/').filter((part) => part.length > 0);
+            const testName = urlParts.slice(1).join('/') || href;
+
+            test(testName, async () => {
+                test.setTimeout(300000);
+
+                console.log(`[${lib}] ${testName}`);
+                const page = await context.newPage();
+
+                page.on('crash', () => {
+                    console.error(`[${lib}] Page crashed: ${testName}`);
+                });
+
+                try {
+                    await page.goto(`http://localhost:5173/${href}`);
+                    await page.waitForSelector('.results-table-ready', { timeout: 600000 });
+
+                    const pdfFilename = href.replace(/[^a-zA-Z0-9]/g, '-') + '.pdf';
+                    await page.pdf({ path: pdfFilename, format: 'A4' });
+                } finally {
+                    await page.close().catch((e) => console.warn(`[${lib}] Error closing page:`, e.message));
+                }
+            });
+        }
+    });
+}
+
+// ── Results Summary ────────────────────────────────────────────────────────
+// Runs in its own fresh context after all library tests complete
+
+test.describe('Results Summary', () => {
+    test('summary', async ({ browser }) => {
+        const contextOptions = fs.existsSync(resultsPath)
+            ? { storageState: resultsPath }
+            : {};
+        const ctx = await browser.newContext(contextOptions);
+        const page = await ctx.newPage();
         try {
+            console.log('Loading results summary page');
             await page.goto('http://localhost:5173/');
             await page.waitForSelector('.results-ready');
-
-            // Save the initial page as PDF
             await page.pdf({ path: 'results-summary-page.pdf', format: 'A4' });
         } finally {
-            await page.close().catch((e) => console.warn('Error closing page:', e.message));
+            await page.close().catch(() => {});
+            await ctx.close().catch(() => {});
         }
     });
 });
