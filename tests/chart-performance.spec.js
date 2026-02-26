@@ -51,10 +51,6 @@ console.log(`Found ${libraryGroups.size} libraries: ${[...libraryGroups.keys()].
 
 for (const [lib, libHrefs] of libraryGroups) {
     test.describe(lib, () => {
-        // Serial within each library — a crash/failure skips remaining tests for
-        // that library only, without affecting subsequent libraries
-        test.describe.configure({ mode: 'serial' });
-
         /** @type {import('@playwright/test').BrowserContext} */
         let context;
 
