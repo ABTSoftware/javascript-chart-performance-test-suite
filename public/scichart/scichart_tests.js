@@ -69,7 +69,7 @@ function eLinePerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.create('chart-root', { loader: false });
+        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -305,7 +305,7 @@ function eScatterLinePerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.create('chart-root', { loader: false });
+        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -420,7 +420,7 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.create('chart-root', { loader: false });
+        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -618,7 +618,7 @@ function eCandlestickPerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.create('chart-root', { loader: false });
+        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -727,7 +727,7 @@ function eFifoEcgPerformanceTest(seriesNum, pointsNum, incrementPoints) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.create('chart-root', { loader: false });
+        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
@@ -1437,7 +1437,7 @@ function eHeatmapPerformanceTest(seriesNum, pointsNum) {
         });
         SciChartDefaults.useNativeText = true;
 
-        const res = await SciChartSurface.create('chart-root', { loader: false });
+        const res = await SciChartSurface.createSingle('chart-root', { loader: false });
         wasmContext = res.wasmContext;
         sciChartSurface = res.sciChartSurface;
 
