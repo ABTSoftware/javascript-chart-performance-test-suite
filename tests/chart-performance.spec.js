@@ -94,6 +94,11 @@ for (const [lib, libHrefs] of libraryGroups) {
                     console.warn(`[${lib}] Failed to close context:`, error.message);
                 }
                 context = undefined;
+
+                // Brief pause to allow GPU resources to be garbage-collected
+                // before the next library's browser context is created
+                console.log(`[${lib}] Waiting 3s for GPU cleanup...`);
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
         });
 
