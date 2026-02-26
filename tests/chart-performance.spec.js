@@ -41,10 +41,6 @@ for (const href of hrefs) {
     libraryGroups.get(lib).push(href);
 }
 
-// Run everything serially — combined with workers:1 in config this guarantees
-// one browser context is fully closed (GPU resources reclaimed) before the next opens
-test.describe.configure({ mode: 'serial' });
-
 console.log(`Results for this run will be saved to: ${resultsPath}`);
 console.log(`Found ${libraryGroups.size} libraries: ${[...libraryGroups.keys()].join(', ')}`);
 
@@ -55,6 +51,10 @@ console.log(`Found ${libraryGroups.size} libraries: ${[...libraryGroups.keys()].
 
 for (const [lib, libHrefs] of libraryGroups) {
     test.describe(lib, () => {
+        // Serial within each library — a crash/failure skips remaining tests for
+        // that library only, without affecting subsequent libraries
+        test.describe.configure({ mode: 'serial' });
+
         /** @type {import('@playwright/test').BrowserContext} */
         let context;
 
