@@ -10,14 +10,6 @@ const LIBRARY_COLORS = {
     ChartGPU: '#F4A261',
 };
 
-// Dash patterns for distinguishing result sets
-const DASH_PATTERNS = [
-    [], // solid
-    [10, 5], // dashed
-    [2, 4], // dotted
-    [10, 5, 2, 5], // dash-dot
-];
-
 // Test group definitions — used to build category labels when no results exist yet
 const TEST_GROUP_CONFIGS = {
     'N line series M points': [
@@ -762,19 +754,11 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
     });
     const multipleResultSets = checkedResultSets.size > 1 || resultSetIds.length > 1;
 
-    const seriesDataMap = new Map(); // seriesId -> { xValues, yValues, color, dashArray, name, markerType }
+    const seriesDataMap = new Map(); // seriesId -> { xValues, yValues, color, name, markerType }
     const testData = grouped[testName] || {};
-
-    const rsIndexMap = {};
-    resultSetIds.forEach((rsId, idx) => {
-        rsIndexMap[rsId] = idx;
-    });
 
     Object.entries(testData).forEach(([rsId, libResults]) => {
         if (!checkedResultSets.has(rsId)) return;
-        const rsIndex = rsIndexMap[rsId] || 0;
-        const dashArray = DASH_PATTERNS[rsIndex % DASH_PATTERNS.length];
-
         Object.entries(libResults).forEach(([libName, results]) => {
             const shortName = getShortLibName(libName);
             if (!checkedLibraries.has(shortName)) return;
@@ -803,7 +787,7 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
             const rsLabel = rsLabelMap[rsId] || rsId;
             const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
 
-            seriesDataMap.set(seriesId, { xValues, yValues, color, dashArray, name, markerType });
+            seriesDataMap.set(seriesId, { xValues, yValues, color, name, markerType });
         });
     });
 
@@ -879,7 +863,7 @@ function updateLineSeries(surface, wasmContext, seriesDataMap) {
                 dataSeries,
                 stroke: data.color,
                 strokeThickness: 2,
-                strokeDashArray: data.dashArray,
+                strokeDashArray: undefined,
                 pointMarker: createPointMarker(wasmContext, data.markerType, data.color),
             });
 
