@@ -68,7 +68,52 @@ document.addEventListener('DOMContentLoaded', async function () {
     await autoImportStorageState();
     await loadDataAndBuildUI();
     setupImportExport();
+    startLiveRefreshPolling();
 });
+
+// ──────────────────────────────────────────────
+// Live refresh polling
+// ──────────────────────────────────────────────
+
+let _liveRefreshActive = false;
+
+async function liveRefresh() {
+    if (_liveRefreshActive) return; // skip if a refresh is already in flight
+    _liveRefreshActive = true;
+    try {
+        // Preserve current user filter state across the reload
+        const prevCheckedResultSets = new Set(checkedResultSets);
+        const prevCheckedLibraries = new Set(checkedLibraries);
+
+        allResultsData = await getAllTestResults();
+        allResultSetsData = await getAllResultSets();
+
+        const rsIdSet = new Set();
+        const libSet = new Set();
+        CHARTS.forEach((c) => libSet.add(c.name));
+        allResultsData.forEach((r) => rsIdSet.add(r.resultSetId || RESERVED_RESULT_SET_LOCAL));
+
+        // Restore previous selections; keep newly appeared result sets selected only if
+        // the user already had something selected (otherwise fall back to local)
+        checkedResultSets = new Set();
+        for (const rsId of rsIdSet) {
+            if (prevCheckedResultSets.has(rsId)) checkedResultSets.add(rsId);
+        }
+        if (checkedResultSets.size === 0 && rsIdSet.has(RESERVED_RESULT_SET_LOCAL)) {
+            checkedResultSets.add(RESERVED_RESULT_SET_LOCAL);
+        }
+        checkedLibraries = prevCheckedLibraries.size > 0 ? prevCheckedLibraries : new Set(libSet);
+
+        buildFilterPanel(rsIdSet, libSet);
+        await buildResultsSection();
+    } finally {
+        _liveRefreshActive = false;
+    }
+}
+
+function startLiveRefreshPolling() {
+    setInterval(liveRefresh, 1000);
+}
 
 function generateTests() {
     const tests = [];
