@@ -748,12 +748,6 @@ function getMarkerSVG(markerType, color) {
 // ──────────────────────────────────────────────
 
 function buildSeriesDataMap(testName, grouped, categoryKeys) {
-    const rsLabelMap = {};
-    allResultSetsData.forEach((rs) => {
-        rsLabelMap[rs.id] = rs.label;
-    });
-    const multipleResultSets = checkedResultSets.size > 1 || resultSetIds.length > 1;
-
     const seriesDataMap = new Map(); // seriesId -> { xValues, yValues, color, name, markerType }
     const testData = grouped[testName] || {};
 
@@ -784,10 +778,7 @@ function buildSeriesDataMap(testName, grouped, categoryKeys) {
 
             if (xValues.length === 0) return;
 
-            const rsLabel = rsLabelMap[rsId] || rsId;
-            const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
-
-            seriesDataMap.set(seriesId, { xValues, yValues, color, name, markerType });
+            seriesDataMap.set(seriesId, { xValues, yValues, color, name: shortName, markerType });
         });
     });
 
@@ -937,13 +928,6 @@ function updateBenchmarkChart(testName, grouped, surface, wasmContext) {
 
     const testData = grouped[testName] || {};
 
-    // Build result set label map
-    const rsLabelMap = {};
-    allResultSetsData.forEach((rs) => {
-        rsLabelMap[rs.id] = rs.label;
-    });
-    const multipleResultSets = checkedResultSets.size > 1;
-
     // Collect all parameter combinations from this test case
     const allParamCombos = [];
     const paramSet = new Set();
@@ -976,8 +960,6 @@ function updateBenchmarkChart(testName, grouped, surface, wasmContext) {
     // Iterate over all checked result sets and libraries
     checkedResultSets.forEach(rsId => {
         checkedLibraries.forEach(shortName => {
-            const rsLabel = rsLabelMap[rsId] || rsId;
-            const name = multipleResultSets ? `${shortName} [${rsLabel}]` : shortName;
             const color = getColorForLibrary(shortName);
 
             // Check if results exist for this combination
@@ -998,10 +980,9 @@ function updateBenchmarkChart(testName, grouped, surface, wasmContext) {
             // Include all scores, even 0 (for tests that haven't run, are unsupported, or crashed)
             benchmarkScores.push({
                 rsId,
-                rsLabel,
                 libName: shortName,
                 shortName,
-                name,
+                name: shortName,
                 score,
                 color,
             });
