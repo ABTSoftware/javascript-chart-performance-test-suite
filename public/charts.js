@@ -423,7 +423,7 @@ function clearAllSeries() {
 // ──────────────────────────────────────────────
 
 async function createAllSurfaces(container) {
-    for (const testKey of Object.keys(E_TEST_NAME)) {
+    for (const testKey of TEST_DISPLAY_ORDER.filter(k => E_TEST_NAME[k])) {
         const testName = E_TEST_NAME[testKey];
 
         const section = document.createElement('div');

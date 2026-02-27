@@ -1,5 +1,26 @@
 // shared.js — Constants and IndexedDB functions shared between index.js and charts.js
 
+// ──────────────────────────────────────────────
+// Test display order configuration
+// Edit the array below to reorder test sections on both the homepage and charts view.
+// Keys map to E_TEST_NAME — test_group_id values are NOT affected.
+// ──────────────────────────────────────────────
+const TEST_DISPLAY_ORDER = [
+    'FIFO',              // FIFO / ECG Chart Performance Test
+    'LINE',              // Line series which is unsorted in x
+    'SCATTER',           // Brownian Motion Scatter Series
+    'MOUNTAIN',          // Mountain Chart Performance Test
+    'COLUMN',            // Column chart with data ascending in X
+    'CANDLESTICK',       // Candlestick series test
+    'HEATMAP',           // Uniform Heatmap Performance Test
+    'MULTI_CHART',       // Multi Chart Performance Test
+    'POINTCLOUD_3D',     // 3D Point Cloud Performance Test
+    'SURFACE_3D',        // 3D Surface Performance Test
+    'SERIES_COMPRESSION',// Series Compression Test
+    'POINT_LINE',        // Point series, sorted, updating y-values
+    'N_X_M',             // N line series M points
+];
+
 const E_TEST_NAME = {
     N_X_M: 'N line series M points',
     SCATTER: 'Brownian Motion Scatter Series',
