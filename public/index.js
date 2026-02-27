@@ -1203,6 +1203,17 @@ function createResultsTable(testName, testResults, runLinks) {
             cell.style.padding = '8px';
             cell.style.textAlign = 'center';
 
+            // If the library doesn't support this test, show UNSUPPORTED and stop
+            const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
+            if (!supportedTests.includes(testName)) {
+                cell.textContent = 'UNSUPPORTED';
+                cell.style.backgroundColor = '#e8e8e8';
+                cell.style.color = '#aaa';
+                cell.style.fontSize = '11px';
+                cell.style.fontStyle = 'italic';
+                return;
+            }
+
             // Find matching result for this chart and parameters
             let chartResults = testResults[chart.name];
             if (!chartResults) {
