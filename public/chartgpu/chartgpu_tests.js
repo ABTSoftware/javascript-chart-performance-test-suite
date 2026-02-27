@@ -18,7 +18,17 @@ function eLibVersion() {
     return '0.1.6';
 }
 
-function getSupportedTests() {
+async function getSupportedTests() {
+    // WebGPU is required — check that the API exists and a device can be created.
+    if (!navigator.gpu) return [];
+    try {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) return [];
+        const device = await adapter.requestDevice();
+        device.destroy();
+    } catch (e) {
+        return [];
+    }
     return [
         "N line series M points",
         "Brownian Motion Scatter Series",

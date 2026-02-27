@@ -185,10 +185,12 @@ async function loadTestSupport(chartName) {
             document.head.appendChild(script);
         });
 
-        // Try to get supported tests from the loaded script
+        // Try to get supported tests from the loaded script.
+        // Use Promise.resolve() so async getSupportedTests() (e.g. WebGPU check) is awaited
+        // while synchronous implementations in other libraries continue to work unchanged.
         let supportedTests;
         if (typeof window.getSupportedTests === 'function') {
-            supportedTests = window.getSupportedTests();
+            supportedTests = await Promise.resolve(window.getSupportedTests());
         } else {
             // Fallback: assume all tests supported if function not found
             supportedTests = Object.values(E_TEST_NAME);
