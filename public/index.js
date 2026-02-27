@@ -1236,8 +1236,8 @@ function createResultsTable(testName, testResults, runLinks) {
                 });
 
                 if (matchingResult) {
-                    if (matchingResult.isErrored && matchingResult.errorReason) {
-                        cell.textContent = matchingResult.errorReason;
+                    if (matchingResult.isErrored) {
+                        cell.textContent = matchingResult.errorReason || 'ERRORED';
                         cell.style.backgroundColor = '#ffcccc';
                         cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
