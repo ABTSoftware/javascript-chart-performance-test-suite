@@ -1,3 +1,24 @@
+// ──────────────────────────────────────────────
+// Test display order configuration
+// Edit the array below to reorder test sections on the homepage.
+// Keys map to E_TEST_NAME in shared.js — test_group_id values are NOT affected.
+// ──────────────────────────────────────────────
+const TEST_DISPLAY_ORDER = [
+    'FIFO',              // FIFO / ECG Chart Performance Test
+    'LINE',              // Line series which is unsorted in x
+    'SCATTER',           // Brownian Motion Scatter Series
+    'MOUNTAIN',          // Mountain Chart Performance Test
+    'COLUMN',            // Column chart with data ascending in X
+    'CANDLESTICK',       // Candlestick series test
+    'HEATMAP',           // Uniform Heatmap Performance Test
+    'MULTI_CHART',       // Multi Chart Performance Test
+    'POINTCLOUD_3D',     // 3D Point Cloud Performance Test
+    'SURFACE_3D',        // 3D Surface Performance Test
+    'SERIES_COMPRESSION',// Series Compression Test
+    'POINT_LINE',        // Point series, sorted, updating y-values
+    'N_X_M',             // N line series M points
+];
+
 const TESTS = generateTests();
 
 // Global filter state
@@ -747,8 +768,9 @@ async function buildResultsSection() {
         // Only show columns/buttons for checked libraries
         const visibleCharts = CHARTS.filter((c) => checkedLibraries.has(c.name));
 
-        // Create tables for each test case
-        Object.keys(E_TEST_NAME).forEach((testKey) => {
+        // Create tables for each test case (ordered by TEST_DISPLAY_ORDER config at top of file)
+        TEST_DISPLAY_ORDER.forEach((testKey) => {
+            if (!E_TEST_NAME[testKey]) return; // guard against unknown keys in config
             const testName = E_TEST_NAME[testKey];
             const testResults = resultsByTestCase[testName] || {};
 
@@ -765,68 +787,102 @@ async function buildResultsSection() {
             titleSpan.textContent = testName;
             heading.appendChild(titleSpan);
 
-            // Add RUN buttons for visible chart libraries
-            const runButtonsContainer = document.createElement('div');
-            runButtonsContainer.style.display = 'flex';
-            runButtonsContainer.style.gap = '10px';
-            runButtonsContainer.style.flexWrap = 'wrap';
-
-            // Find the test group index for this test name
+            // Build run link map: chartName → URL (play icons are added inside table header cells)
             const testGroupId = Object.keys(E_TEST_NAME).find((key) => E_TEST_NAME[key] === testName);
             const testGroupIndex = testGroupId ? Object.keys(E_TEST_NAME).indexOf(testGroupId) + 1 : null;
 
-            visibleCharts.forEach((chart) => {
-                const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
-                const isSupported = supportedTests.includes(testName);
-
-                if (isSupported && testGroupIndex) {
+            const runLinks = new Map();
+            if (testGroupIndex) {
+                visibleCharts.forEach((chart) => {
+                    const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
+                    if (!supportedTests.includes(testName)) return;
                     let href = chart.path || '';
-
                     if (chart.custom && chart.custom.length > 0) {
                         const customTest = chart.custom.find((customItem) => customItem.test === testName);
-                        if (customTest) {
-                            href = customTest.path;
-                        }
+                        if (customTest) href = customTest.path;
                     }
-
-                    const runLink = document.createElement('a');
-                    runLink.textContent = `RUN ${chart.name}`;
-                    runLink.className = 'run-test-link';
-                    runLink.href = `${href}?test_group_id=${testGroupIndex}`;
-                    runLink.target = '_blank';
-                    runLink.rel = 'noopener noreferrer';
-                    runLink.style.padding = '5px 10px';
-                    runLink.style.fontSize = '12px';
-                    runLink.style.backgroundColor = '#007bff';
-                    runLink.style.color = 'white';
-                    runLink.style.border = 'none';
-                    runLink.style.borderRadius = '3px';
-                    runLink.style.cursor = 'pointer';
-                    runLink.style.textDecoration = 'none';
-                    runLink.style.display = 'inline-block';
-
-                    runLink.addEventListener('mouseenter', () => {
-                        runLink.style.backgroundColor = '#0056b3';
-                    });
-
-                    runLink.addEventListener('mouseleave', () => {
-                        runLink.style.backgroundColor = '#007bff';
-                    });
-
-                    runButtonsContainer.appendChild(runLink);
-                }
-            });
-
-            heading.appendChild(runButtonsContainer);
+                    runLinks.set(chart.name, `${href}?test_group_id=${testGroupIndex}`);
+                });
+            }
             section.appendChild(heading);
 
             let table;
             if (showAllMode) {
-                table = createResultsTableAllMode(testName, testResults, resultSetMap);
+                table = createResultsTableAllMode(testName, testResults, resultSetMap, runLinks);
             } else {
-                table = createResultsTable(testName, testResults);
+                table = createResultsTable(testName, testResults, runLinks);
             }
             table.classList.add('results-ready');
+
+            // Copy-to-clipboard button — lives in the heading, references table via closure
+            const copyBtn = document.createElement('button');
+            copyBtn.style.cssText = [
+                'display:inline-flex', 'align-items:center', 'gap:4px',
+                'padding:3px 8px', 'font-size:11px', 'cursor:pointer',
+                'border:1px solid #ccc', 'border-radius:3px',
+                'background:#f8f8f8', 'color:#555', 'flex-shrink:0',
+                'font-weight:normal', 'line-height:1.4',
+            ].join(';');
+            const COPY_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M10 1.5A1.5 1.5 0 0 0 8.5 0h-5A1.5 1.5 0 0 0 2 1.5v9A1.5 1.5 0 0 0 3.5 12H4v-1h-.5a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V2h1v-.5z"/><path d="M5.5 3A1.5 1.5 0 0 0 4 4.5v9A1.5 1.5 0 0 0 5.5 15h6A1.5 1.5 0 0 0 13 13.5v-9A1.5 1.5 0 0 0 11.5 3h-6zm0 1h6a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-6a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5z"/></svg>`;
+            copyBtn.innerHTML = `${COPY_ICON} Copy`;
+            copyBtn.addEventListener('click', () => {
+                // Build the HTML string manually from the live table data.
+                // Never touch the rendered DOM clone — both cloneNode+outerHTML and
+                // execCommand go through Chrome's rendering engine which injects computed
+                // styles and wraps text nodes in <span> elements.
+                function esc(s) {
+                    return String(s)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;');
+                }
+
+                let tableHtml = '<table style="border-collapse:collapse">';
+                for (let r = 0; r < table.rows.length; r++) {
+                    tableHtml += '<tr>';
+                    for (let c = 0; c < table.rows[r].cells.length; c++) {
+                        const cell = table.rows[r].cells[c];
+                        const bg = cell.style.backgroundColor;
+                        const style = bg ? ` style="background-color:${bg}"` : '';
+                        const tag = cell.tagName.toLowerCase();
+                        tableHtml += `<${tag}${style}>${esc(cell.textContent.trim())}</${tag}>`;
+                    }
+                    tableHtml += '</tr>';
+                }
+                tableHtml += '</table>';
+
+                // Wrap in a full document so the <style> rule is applied when Chrome
+                // re-serialises the Blob for CF_HTML. The rule forces span background to
+                // transparent so Chrome does not serialise a background-color onto the
+                // <span> elements it injects around text nodes inside coloured cells.
+                const html = `<!DOCTYPE html><html><head><meta charset="utf-8">` +
+                    `<style>td span,th span{background-color:transparent!important;background:transparent!important}</style>` +
+                    `</head><body>${tableHtml}</body></html>`;
+
+                const onSuccess = () => {
+                    copyBtn.innerHTML = `✓ Copied!`;
+                    copyBtn.style.color = '#28a745';
+                    copyBtn.style.borderColor = '#28a745';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = `${COPY_ICON} Copy`;
+                        copyBtn.style.color = '#555';
+                        copyBtn.style.borderColor = '#ccc';
+                    }, 1800);
+                };
+
+                if (navigator.clipboard && window.ClipboardItem) {
+                    navigator.clipboard
+                        .write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) })])
+                        .then(onSuccess)
+                        .catch(() => { navigator.clipboard.writeText(tableHtml).catch(() => {}); onSuccess(); });
+                } else {
+                    navigator.clipboard.writeText(tableHtml).catch(() => {});
+                    onSuccess();
+                }
+            });
+            heading.appendChild(copyBtn);
+
             section.appendChild(table);
 
             // Add Chart Bench for this test case
@@ -844,7 +900,7 @@ async function buildResultsSection() {
 }
 
 // Single result set mode — one column per visible library
-function createResultsTable(testName, testResults) {
+function createResultsTable(testName, testResults, runLinks) {
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
     table.style.width = '100%';
@@ -869,12 +925,39 @@ function createResultsTable(testName, testResults) {
 
     visibleCharts.forEach((chart) => {
         const cell = headerRow.insertCell();
-        cell.textContent = `${chart.name} ${getMetricLabel()}`;
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
         cell.style.width = `${libColWidth}%`;
         cell.style.fontSize = '14px';
+
+        const wrapper = document.createElement('span');
+        wrapper.style.display = 'inline-flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.justifyContent = 'center';
+        wrapper.style.gap = '5px';
+
+        const nameText = document.createTextNode(`${chart.name} ${getMetricLabel()}`);
+        wrapper.appendChild(nameText);
+
+        const runUrl = runLinks && runLinks.get(chart.name);
+        if (runUrl) {
+            const playLink = document.createElement('a');
+            playLink.href = runUrl;
+            playLink.target = '_blank';
+            playLink.rel = 'noopener noreferrer';
+            playLink.title = 'Run Test';
+            playLink.style.display = 'inline-flex';
+            playLink.style.alignItems = 'center';
+            playLink.style.flexShrink = '0';
+            playLink.style.opacity = '0.7';
+            playLink.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#007bff"/><polygon points="6.5,4.5 12.5,8 6.5,11.5" fill="white"/></svg>`;
+            playLink.addEventListener('mouseenter', () => { playLink.style.opacity = '1'; });
+            playLink.addEventListener('mouseleave', () => { playLink.style.opacity = '0.7'; });
+            wrapper.appendChild(playLink);
+        }
+
+        cell.appendChild(wrapper);
     });
 
     // Get all possible parameter combinations from test configurations
@@ -1166,7 +1249,7 @@ function createResultsTable(testName, testResults) {
 }
 
 // Multiple result sets mode — columns are "{library} [{resultSetLabel}]"
-function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
+function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runLinks) {
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
     table.style.width = '100%';
@@ -1222,13 +1305,41 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap) {
 
     columns.forEach((col) => {
         const cell = headerRow.insertCell();
-        const metricLabel = getMetricLabel();
-        cell.textContent = singleResultSet ? `${col.shortName} ${metricLabel}` : `${col.shortName} [${col.rsLabel}]`;
         cell.style.border = '1px solid #ccc';
         cell.style.padding = '8px';
         cell.style.textAlign = 'center';
         cell.style.fontSize = '14px';
         cell.style.width = `${libColWidth}%`;
+
+        const metricLabel = getMetricLabel();
+        const labelText = singleResultSet ? `${col.shortName} ${metricLabel}` : `${col.shortName} [${col.rsLabel}]`;
+
+        const wrapper = document.createElement('span');
+        wrapper.style.display = 'inline-flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.justifyContent = 'center';
+        wrapper.style.gap = '5px';
+
+        wrapper.appendChild(document.createTextNode(labelText));
+
+        const runUrl = runLinks && runLinks.get(col.shortName);
+        if (runUrl) {
+            const playLink = document.createElement('a');
+            playLink.href = runUrl;
+            playLink.target = '_blank';
+            playLink.rel = 'noopener noreferrer';
+            playLink.title = 'Run Test';
+            playLink.style.display = 'inline-flex';
+            playLink.style.alignItems = 'center';
+            playLink.style.flexShrink = '0';
+            playLink.style.opacity = '0.7';
+            playLink.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#007bff"/><polygon points="6.5,4.5 12.5,8 6.5,11.5" fill="white"/></svg>`;
+            playLink.addEventListener('mouseenter', () => { playLink.style.opacity = '1'; });
+            playLink.addEventListener('mouseleave', () => { playLink.style.opacity = '0.7'; });
+            wrapper.appendChild(playLink);
+        }
+
+        cell.appendChild(wrapper);
     });
 
     // Collect parameter combinations from all columns
