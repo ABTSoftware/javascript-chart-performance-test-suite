@@ -21,6 +21,44 @@ const TEST_DISPLAY_ORDER = [
     'N_X_M',             // N line series M points
 ];
 
+// ──────────────────────────────────────────────
+// Static (pre-recorded) result sets
+// Add entries here to bundle reference results with the app.
+// These are fetched from /public on startup and cannot be deleted by users.
+// ──────────────────────────────────────────────
+const STATIC_RESULT_SETS = [
+    { id: 'arm-snapdragon', label: 'ARM Snapdragon', file: '/arm-snapdragon.json' },
+    { id: 'intel-i9-nvidia-4090', label: 'Intel i9 / Nvidia RTX 4090', file: '/intel-i9-nvidia-4090.json' },
+];
+
+function isStaticResultSet(id) {
+    return STATIC_RESULT_SETS.some((s) => s.id === id);
+}
+
+async function autoImportStaticResultSets() {
+    for (const { id, label, file } of STATIC_RESULT_SETS) {
+        try {
+            const response = await fetch(file);
+            if (!response.ok) continue;
+            const text = await response.text();
+
+            // Skip re-import when file content is unchanged
+            const hash = simpleHash(text);
+            const hashKey = `staticResultSetHash_${id}`;
+            if (localStorage.getItem(hashKey) === hash) continue;
+
+            const records = parseSimpleJson(text);
+            if (records.length === 0) continue;
+
+            await importResults(records, id, label, 'static');
+            localStorage.setItem(hashKey, hash);
+            console.log(`Loaded static result set "${label}" (${records.length} records)`);
+        } catch (e) {
+            console.warn(`Failed to load static result set "${label}":`, e.message);
+        }
+    }
+}
+
 const E_TEST_NAME = {
     N_X_M: 'N line series M points',
     SCATTER: 'Brownian Motion Scatter Series',
@@ -264,9 +302,12 @@ async function saveResultSet(metadata) {
 async function deleteResultSet(resultSetId) {
     if (!db) throw new Error('Database not initialized');
 
-    // Prevent deleting the local result set
+    // Prevent deleting the local or any static result set
     if (resultSetId === RESERVED_RESULT_SET_LOCAL) {
         throw new Error('Cannot delete the "Local" result set');
+    }
+    if (isStaticResultSet(resultSetId)) {
+        throw new Error(`Cannot delete the static result set "${resultSetId}"`);
     }
 
     const tx = db.transaction([STORE_NAME, RESULT_SETS_STORE], 'readwrite');

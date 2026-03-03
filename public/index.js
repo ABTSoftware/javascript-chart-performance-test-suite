@@ -67,6 +67,7 @@ function formatMetricValue(value) {
 
 document.addEventListener('DOMContentLoaded', async function () {
     await initIndexedDB();
+    await autoImportStaticResultSets();
     await autoImportStorageState();
     await loadDataAndBuildUI();
     setupImportExport();
@@ -80,37 +81,156 @@ document.addEventListener('DOMContentLoaded', async function () {
 let _liveRefreshActive = false;
 
 async function liveRefresh() {
-    if (_liveRefreshActive) return; // skip if a refresh is already in flight
+    if (_liveRefreshActive) return;
     _liveRefreshActive = true;
     try {
-        // Preserve current user filter state across the reload
-        const prevCheckedResultSets = new Set(checkedResultSets);
-        const prevCheckedLibraries = new Set(checkedLibraries);
+        // Snapshot current result-set IDs before fetching fresh data
+        const prevRsIdSet = new Set(
+            allResultsData.map((r) => r.resultSetId || RESERVED_RESULT_SET_LOCAL)
+        );
 
         allResultsData = await getAllTestResults();
-        allResultSetsData = await getAllResultSets();
 
-        const rsIdSet = new Set();
-        const libSet = new Set();
-        CHARTS.forEach((c) => libSet.add(c.name));
-        allResultsData.forEach((r) => rsIdSet.add(r.resultSetId || RESERVED_RESULT_SET_LOCAL));
+        const rsIdSet = new Set(
+            allResultsData.map((r) => r.resultSetId || RESERVED_RESULT_SET_LOCAL)
+        );
 
-        // Restore previous selections; keep newly appeared result sets selected only if
-        // the user already had something selected (otherwise fall back to local)
-        checkedResultSets = new Set();
-        for (const rsId of rsIdSet) {
-            if (prevCheckedResultSets.has(rsId)) checkedResultSets.add(rsId);
+        const rsSetChanged =
+            rsIdSet.size !== prevRsIdSet.size || [...rsIdSet].some((id) => !prevRsIdSet.has(id));
+
+        if (rsSetChanged) {
+            // A new result set appeared (e.g. first local record during a run) — full rebuild
+            allResultSetsData = await getAllResultSets();
+            const libSet = new Set();
+            CHARTS.forEach((c) => libSet.add(c.name));
+            const prevCheckedResultSets = new Set(checkedResultSets);
+            const prevCheckedLibraries = new Set(checkedLibraries);
+            checkedResultSets = new Set();
+            for (const rsId of rsIdSet) {
+                if (prevCheckedResultSets.has(rsId)) checkedResultSets.add(rsId);
+            }
+            if (checkedResultSets.size === 0) {
+                if (rsIdSet.has(RESERVED_RESULT_SET_LOCAL)) {
+                    checkedResultSets.add(RESERVED_RESULT_SET_LOCAL);
+                } else {
+                    const firstStatic = STATIC_RESULT_SETS.find(({ id }) => rsIdSet.has(id));
+                    if (firstStatic) checkedResultSets.add(firstStatic.id);
+                    else if (rsIdSet.size > 0) checkedResultSets.add(rsIdSet.values().next().value);
+                }
+            }
+            checkedLibraries = prevCheckedLibraries.size > 0 ? prevCheckedLibraries : new Set(libSet);
+            buildFilterPanel(rsIdSet, libSet);
+            await buildResultsSection();
+        } else {
+            // Common case during a test run: just patch cell values in-place
+            await updateResultCells();
         }
-        if (checkedResultSets.size === 0 && rsIdSet.has(RESERVED_RESULT_SET_LOCAL)) {
-            checkedResultSets.add(RESERVED_RESULT_SET_LOCAL);
-        }
-        checkedLibraries = prevCheckedLibraries.size > 0 ? prevCheckedLibraries : new Set(libSet);
-
-        buildFilterPanel(rsIdSet, libSet);
-        await buildResultsSection();
     } finally {
         _liveRefreshActive = false;
     }
+}
+
+// Update only the data cell values in existing tables — no DOM rebuild.
+async function updateResultCells() {
+    const filteredResults = allResultsData.filter((r) => {
+        const rsId = r.resultSetId || RESERVED_RESULT_SET_LOCAL;
+        const lib = getShortLibName(r.chartLibrary);
+        return checkedResultSets.has(rsId) && checkedLibraries.has(lib);
+    });
+
+    const showAllMode = checkedResultSets.size > 1;
+
+    // Build per-test lookup: results + heatmap min/max
+    const testData = {};
+    if (!showAllMode) {
+        const byTest = groupResultsByTestCase(filteredResults);
+        TEST_DISPLAY_ORDER.forEach((key) => {
+            if (!E_TEST_NAME[key]) return;
+            const testName = E_TEST_NAME[key];
+            const results = byTest[testName] || {};
+            const vals = [];
+            Object.values(results).forEach((arr) => {
+                if (Array.isArray(arr)) arr.forEach((r) => { const v = getMetricValue(r, testName); if (v != null && v > 0) vals.push(v); });
+            });
+            testData[testName] = { results, min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 100 };
+        });
+    } else {
+        const byTestAndRs = groupResultsByTestCaseAndResultSet(filteredResults);
+        TEST_DISPLAY_ORDER.forEach((key) => {
+            if (!E_TEST_NAME[key]) return;
+            const testName = E_TEST_NAME[key];
+            const resultsByRs = byTestAndRs[testName] || {};
+            const vals = [];
+            Object.values(resultsByRs).forEach((libResults) => {
+                Object.values(libResults).forEach((arr) => {
+                    if (Array.isArray(arr)) arr.forEach((r) => { const v = getMetricValue(r, testName); if (v != null && v > 0) vals.push(v); });
+                });
+            });
+            testData[testName] = { resultsByRs, min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 100 };
+        });
+    }
+
+    document.querySelectorAll('[data-result-cell]').forEach((cell) => {
+        if (cell.dataset.unsupported) return;
+        const testName = cell.dataset.test;
+        const paramStr = cell.dataset.params;
+        const td = testData[testName];
+        if (!td) return;
+
+        let matchingResult = null;
+        if (!showAllMode) {
+            const chartName = cell.dataset.chart;
+            let chartResults = td.results[chartName];
+            if (!chartResults) {
+                const k = Object.keys(td.results).find((key) => key.startsWith(chartName));
+                if (k) chartResults = td.results[k];
+            }
+            if (chartResults && Array.isArray(chartResults)) {
+                matchingResult = chartResults.find((r) => {
+                    if (!r.config) return false;
+                    const rp = `${r.config.points || 0} points, ${r.config.series || 0} series${r.config.charts ? `, ${r.config.charts} charts` : ''}`;
+                    return rp === paramStr;
+                });
+            }
+        } else {
+            const rsId = cell.dataset.rs;
+            const libName = cell.dataset.chart;
+            const arr = td.resultsByRs[rsId]?.[libName];
+            if (arr && Array.isArray(arr)) {
+                matchingResult = arr.find((r) => {
+                    if (!r.config) return false;
+                    const rp = `${r.config.points || 0} points, ${r.config.series || 0} series${r.config.charts ? `, ${r.config.charts} charts` : ''}`;
+                    return rp === paramStr;
+                });
+            }
+        }
+
+        applyResultToCell(cell, matchingResult, testName, td.min, td.max);
+    });
+}
+
+function applyResultToCell(cell, matchingResult, testName, minMetric, maxMetric) {
+    if (matchingResult) {
+        if (matchingResult.isErrored) {
+            cell.textContent = matchingResult.errorReason || 'ERRORED';
+            cell.style.backgroundColor = '#ffcccc';
+            cell.style.color = '#cc0000';
+            cell.style.fontWeight = 'bold';
+            return;
+        }
+        const metricValue = getMetricValue(matchingResult, testName);
+        if (metricValue !== null) {
+            cell.textContent = formatMetricValue(metricValue);
+            cell.style.backgroundColor = getFpsHeatmapColor(metricValue, minMetric, maxMetric);
+            cell.style.color = '';
+            cell.style.fontWeight = '';
+            return;
+        }
+    }
+    cell.textContent = '-';
+    cell.style.backgroundColor = '#f9f9f9';
+    cell.style.color = '#999';
+    cell.style.fontWeight = '';
 }
 
 function startLiveRefreshPolling() {
@@ -211,13 +331,18 @@ async function loadDataAndBuildUI() {
         rsIdSet.add(r.resultSetId || RESERVED_RESULT_SET_LOCAL);
     });
 
-    // Only check "Local" by default; imported sets start unchecked
+    // Select exactly one result set by default (radio-button model).
+    // Priority: Local (if it has data) → first static set with data → first available.
     checkedResultSets = new Set();
     if (rsIdSet.has(RESERVED_RESULT_SET_LOCAL)) {
         checkedResultSets.add(RESERVED_RESULT_SET_LOCAL);
-    } else if (rsIdSet.size > 0) {
-        // Fallback: check first available set
-        checkedResultSets.add(rsIdSet.values().next().value);
+    } else {
+        const firstStatic = STATIC_RESULT_SETS.find(({ id }) => rsIdSet.has(id));
+        if (firstStatic) {
+            checkedResultSets.add(firstStatic.id);
+        } else if (rsIdSet.size > 0) {
+            checkedResultSets.add(rsIdSet.values().next().value);
+        }
     }
     checkedLibraries = new Set(libSet);
 
@@ -269,23 +394,25 @@ function buildFilterPanel(rsIdSet, libSet) {
         label.appendChild(cb);
         label.appendChild(document.createTextNode(rsLabelMap[rsId] || rsId));
 
-        const delBtn = document.createElement('button');
-        delBtn.textContent = '\u00d7';
-        delBtn.className = 'delete-rs-btn';
-        if (rsId === RESERVED_RESULT_SET_LOCAL) {
-            delBtn.title = 'Clear all local results';
-            delBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                handleClearLocalResults();
-            });
-        } else {
-            delBtn.title = `Delete "${rsLabelMap[rsId] || rsId}"`;
-            delBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                handleDeleteResultSet(rsId, rsLabelMap[rsId] || rsId);
-            });
+        if (!isStaticResultSet(rsId)) {
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '\u00d7';
+            delBtn.className = 'delete-rs-btn';
+            if (rsId === RESERVED_RESULT_SET_LOCAL) {
+                delBtn.title = 'Clear all local results';
+                delBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    handleClearLocalResults();
+                });
+            } else {
+                delBtn.title = `Delete "${rsLabelMap[rsId] || rsId}"`;
+                delBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    handleDeleteResultSet(rsId, rsLabelMap[rsId] || rsId);
+                });
+            }
+            label.appendChild(delBtn);
         }
-        label.appendChild(delBtn);
 
         rsContainer.appendChild(label);
     }
@@ -300,7 +427,7 @@ function buildFilterPanel(rsIdSet, libSet) {
         const label = document.createElement('label');
         const cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.checked = true;
+        cb.checked = checkedLibraries.has(lib);
         cb.dataset.lib = lib;
         cb.addEventListener('change', onFilterChange);
         label.appendChild(cb);
@@ -397,9 +524,14 @@ async function handleImport(event) {
 
         const resultSetId = generateResultSetId(label);
 
-        // Never allow importing into the reserved local result set
+        // Never allow importing over the reserved local or static result sets
         if (resultSetId === RESERVED_RESULT_SET_LOCAL) {
             alert('"local" is reserved for locally-run tests. Please choose a different label.');
+            event.target.value = '';
+            return;
+        }
+        if (isStaticResultSet(resultSetId)) {
+            alert(`"${resultSetId}" is a built-in reference result set and cannot be overwritten. Please choose a different label.`);
             event.target.value = '';
             return;
         }
@@ -430,6 +562,10 @@ async function handleImport(event) {
 async function handleDeleteResultSet(rsId, label) {
     if (rsId === RESERVED_RESULT_SET_LOCAL) {
         alert('Cannot delete the "Local" result set.');
+        return;
+    }
+    if (isStaticResultSet(rsId)) {
+        alert(`"${label}" is a built-in reference result set and cannot be deleted.`);
         return;
     }
 
@@ -1185,10 +1321,15 @@ function createResultsTable(testName, testResults, runLinks) {
             cell.style.border = '1px solid #ccc';
             cell.style.padding = '8px';
             cell.style.textAlign = 'center';
+            cell.dataset.resultCell = '1';
+            cell.dataset.test = testName;
+            cell.dataset.chart = chart.name;
+            cell.dataset.params = paramStr;
 
             // If the library doesn't support this test, show UNSUPPORTED and stop
             const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
             if (!supportedTests.includes(testName)) {
+                cell.dataset.unsupported = '1';
                 cell.textContent = 'UNSUPPORTED';
                 cell.style.backgroundColor = '#e8e8e8';
                 cell.style.color = '#aaa';
@@ -1394,6 +1535,11 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
             cell.style.border = '1px solid #ccc';
             cell.style.padding = '8px';
             cell.style.textAlign = 'center';
+            cell.dataset.resultCell = '1';
+            cell.dataset.test = testName;
+            cell.dataset.rs = col.rsId;
+            cell.dataset.chart = col.libName;
+            cell.dataset.params = paramStr;
 
             const results = testResultsByRs[col.rsId]?.[col.libName];
             let metricValue = null;
@@ -1408,8 +1554,8 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
                 });
 
                 if (match) {
-                    if (match.isErrored && match.errorReason) {
-                        cell.textContent = match.errorReason;
+                    if (match.isErrored) {
+                        cell.textContent = match.errorReason || 'ERRORED';
                         cell.style.backgroundColor = '#ffcccc';
                         cell.style.color = '#cc0000';
                         cell.style.fontWeight = 'bold';
