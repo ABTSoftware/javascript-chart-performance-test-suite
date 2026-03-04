@@ -207,6 +207,22 @@ async function updateResultCells() {
 
         applyResultToCell(cell, matchingResult, testName, td.min, td.max);
     });
+
+    // Update bench score tables in-place — replace only the <table> inside each bench section.
+    const resultSetMap = {};
+    allResultSetsData.forEach((rs) => { resultSetMap[rs.id] = rs.label; });
+
+    document.querySelectorAll('[data-bench-section]').forEach((benchSection) => {
+        const testName = benchSection.dataset.benchSection;
+        const td = testData[testName];
+        if (!td) return;
+        const testResults = showAllMode ? (td.resultsByRs || {}) : (td.results || {});
+        const newBench = createChartBenchTable(testName, testResults, showAllMode, resultSetMap);
+        if (!newBench) return;
+        const oldTable = benchSection.querySelector('table');
+        const newTable = newBench.querySelector('table');
+        if (oldTable && newTable) oldTable.replaceWith(newTable);
+    });
 }
 
 function applyResultToCell(cell, matchingResult, testName, minMetric, maxMetric) {
@@ -703,6 +719,7 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
 
     // Create benchmark section
     const benchSection = document.createElement('div');
+    benchSection.dataset.benchSection = testName;
     benchSection.style.marginTop = '15px';
     benchSection.style.marginBottom = '10px';
 
@@ -1050,6 +1067,11 @@ function createResultsTable(testName, testResults, runLinks) {
         cell.style.textAlign = 'center';
         cell.style.width = `${libColWidth}%`;
         cell.style.fontSize = '14px';
+
+        const chartResultsArr = testResults[chart.name];
+        const firstRes = chartResultsArr && chartResultsArr[0];
+        const fullLibName = firstRes ? `${firstRes.configLibName} ${firstRes.configLibVersion}` : chart.name;
+        cell.title = `${fullLibName} | ${getMetricLabel()}`;
 
         const wrapper = document.createElement('span');
         wrapper.style.display = 'inline-flex';
@@ -1449,6 +1471,11 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
 
         const metricLabel = getMetricLabel();
         const labelText = singleResultSet ? `${col.shortName} ${metricLabel}` : `${col.shortName} [${col.rsLabel}]`;
+
+        const colResultsArr = testResultsByRs[col.rsId]?.[col.libName];
+        const firstRes = colResultsArr && colResultsArr[0];
+        const fullLibName = firstRes ? `${firstRes.configLibName} ${firstRes.configLibVersion}` : col.shortName;
+        cell.title = `${fullLibName} | ${metricLabel}`;
 
         const wrapper = document.createElement('span');
         wrapper.style.display = 'inline-flex';
