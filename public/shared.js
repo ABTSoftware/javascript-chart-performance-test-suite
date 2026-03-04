@@ -371,27 +371,48 @@ function generateResultSetId(label) {
 // Grouping helpers
 // ──────────────────────────────────────────────
 
+// Returns the canonical chart name for a full chartLibrary string (e.g. "LCJS v8 8.2.0" → "LCJS v8").
+function getShortLibName(chartLibrary) {
+    const chart = CHARTS.find((c) => chartLibrary.startsWith(c.name));
+    return chart ? chart.name : chartLibrary;
+}
+
+// When the same library has been benchmarked at multiple versions, keep only the
+// most recent record for each (resultSetId, shortLibName, testCase) tuple.
+function deduplicateByShortLibName(allResults) {
+    const latest = {};
+    allResults.forEach((result) => {
+        const shortLib = getShortLibName(result.chartLibrary);
+        const key = `${result.resultSetId || RESERVED_RESULT_SET_LOCAL}__${shortLib}__${result.testCase}`;
+        if (!latest[key] || (result.timestamp || 0) > (latest[key].timestamp || 0)) {
+            latest[key] = result;
+        }
+    });
+    return Object.values(latest);
+}
+
 function groupResultsByTestCase(allResults) {
     const resultsByTestCase = {};
-    allResults.forEach((result) => {
+    deduplicateByShortLibName(allResults).forEach((result) => {
+        const shortLib = getShortLibName(result.chartLibrary);
         if (!resultsByTestCase[result.testCase]) {
             resultsByTestCase[result.testCase] = {};
         }
-        resultsByTestCase[result.testCase][result.chartLibrary] = result.results;
+        resultsByTestCase[result.testCase][shortLib] = result.results;
     });
     return resultsByTestCase;
 }
 
 function groupResultsByTestCaseAndResultSet(allResults) {
-    // Returns { [testCase]: { [resultSetId]: { [chartLibrary]: results[] } } }
+    // Returns { [testCase]: { [resultSetId]: { [shortLibName]: results[] } } }
     const grouped = {};
-    allResults.forEach((result) => {
+    deduplicateByShortLibName(allResults).forEach((result) => {
         const tc = result.testCase;
         const rs = result.resultSetId || RESERVED_RESULT_SET_LOCAL;
-        const lib = result.chartLibrary;
+        const shortLib = getShortLibName(result.chartLibrary);
         if (!grouped[tc]) grouped[tc] = {};
         if (!grouped[tc][rs]) grouped[tc][rs] = {};
-        grouped[tc][rs][lib] = result.results;
+        grouped[tc][rs][shortLib] = result.results;
     });
     return grouped;
 }

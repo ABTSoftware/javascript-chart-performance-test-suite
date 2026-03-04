@@ -21,7 +21,7 @@ async function saveTestResults(chartLibrary, testCase, results) {
         console.log('Object store retrieved successfully');
 
         const data = {
-            id: `${RESERVED_RESULT_SET_LOCAL}_${chartLibrary}_${testCase}`,
+            id: `${RESERVED_RESULT_SET_LOCAL}_${eLibName()}_${testCase}`,
             chartLibrary,
             testCase,
             results,
