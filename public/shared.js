@@ -123,6 +123,10 @@ function generateCharts() {
         name: 'Lcjs',
         path: 'lcjsv4/lcjs.html'
     });
+    charts.push({
+        name: 'LCJS v8',
+        path: 'lcjs-vLatest/lcjs-vLatest.html'
+    });
     return charts;
 }
 

@@ -18,3 +18,4 @@ package-lock.json
 /tests/test-results-*.json
 *.pdf
 /.claude
+public/lcjs-vLatest/lcjs-license.js
