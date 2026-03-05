@@ -340,13 +340,18 @@ async function loadDataAndBuildUI() {
     allResultsData = await getAllTestResults();
     allResultSetsData = await getAllResultSets();
 
+    // Always ensure Local has metadata (fallback if IDB row is missing on fresh install)
+    if (!allResultSetsData.some((rs) => rs.id === RESERVED_RESULT_SET_LOCAL)) {
+        allResultSetsData.unshift({ id: RESERVED_RESULT_SET_LOCAL, label: 'Local', source: 'system' });
+    }
+
     const rsIdSet = new Set();
     const libSet = new Set();
 
     // Always include all chart libraries from CHARTS
     CHARTS.forEach((c) => libSet.add(c.name));
 
-    // Local is always present, even when empty
+    // Local is always present and always first, even when empty
     rsIdSet.add(RESERVED_RESULT_SET_LOCAL);
 
     // Add any result set IDs from data
