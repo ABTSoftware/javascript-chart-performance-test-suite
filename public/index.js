@@ -88,12 +88,15 @@ async function liveRefresh() {
         const prevRsIdSet = new Set(
             allResultsData.map((r) => r.resultSetId || RESERVED_RESULT_SET_LOCAL)
         );
+        prevRsIdSet.add(RESERVED_RESULT_SET_LOCAL);
 
         allResultsData = await getAllTestResults();
 
         const rsIdSet = new Set(
             allResultsData.map((r) => r.resultSetId || RESERVED_RESULT_SET_LOCAL)
         );
+        // Local is always present, even when empty
+        rsIdSet.add(RESERVED_RESULT_SET_LOCAL);
 
         const rsSetChanged =
             rsIdSet.size !== prevRsIdSet.size || [...rsIdSet].some((id) => !prevRsIdSet.has(id));
@@ -343,13 +346,16 @@ async function loadDataAndBuildUI() {
     // Always include all chart libraries from CHARTS
     CHARTS.forEach((c) => libSet.add(c.name));
 
+    // Local is always present, even when empty
+    rsIdSet.add(RESERVED_RESULT_SET_LOCAL);
+
     // Add any result set IDs from data
     allResultsData.forEach((r) => {
         rsIdSet.add(r.resultSetId || RESERVED_RESULT_SET_LOCAL);
     });
 
     // Select exactly one result set by default (radio-button model).
-    // Priority: Local (if it has data) → first static set with data → first available.
+    // Priority: Local → first static set with data → first available.
     checkedResultSets = new Set();
     if (rsIdSet.has(RESERVED_RESULT_SET_LOCAL)) {
         checkedResultSets.add(RESERVED_RESULT_SET_LOCAL);
