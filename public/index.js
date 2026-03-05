@@ -88,12 +88,15 @@ async function liveRefresh() {
         const prevRsIdSet = new Set(
             allResultsData.map((r) => r.resultSetId || RESERVED_RESULT_SET_LOCAL)
         );
+        prevRsIdSet.add(RESERVED_RESULT_SET_LOCAL);
 
         allResultsData = await getAllTestResults();
 
         const rsIdSet = new Set(
             allResultsData.map((r) => r.resultSetId || RESERVED_RESULT_SET_LOCAL)
         );
+        // Local is always present, even when empty
+        rsIdSet.add(RESERVED_RESULT_SET_LOCAL);
 
         const rsSetChanged =
             rsIdSet.size !== prevRsIdSet.size || [...rsIdSet].some((id) => !prevRsIdSet.has(id));
@@ -207,6 +210,22 @@ async function updateResultCells() {
 
         applyResultToCell(cell, matchingResult, testName, td.min, td.max);
     });
+
+    // Update bench score tables in-place — replace only the <table> inside each bench section.
+    const resultSetMap = {};
+    allResultSetsData.forEach((rs) => { resultSetMap[rs.id] = rs.label; });
+
+    document.querySelectorAll('[data-bench-section]').forEach((benchSection) => {
+        const testName = benchSection.dataset.benchSection;
+        const td = testData[testName];
+        if (!td) return;
+        const testResults = showAllMode ? (td.resultsByRs || {}) : (td.results || {});
+        const newBench = createChartBenchTable(testName, testResults, showAllMode, resultSetMap);
+        if (!newBench) return;
+        const oldTable = benchSection.querySelector('table');
+        const newTable = newBench.querySelector('table');
+        if (oldTable && newTable) oldTable.replaceWith(newTable);
+    });
 }
 
 function applyResultToCell(cell, matchingResult, testName, minMetric, maxMetric) {
@@ -263,7 +282,8 @@ async function loadTestSupport(chartName) {
         'Apache ECharts': 'echarts/echarts_tests.js',
         uPlot: 'uPlot/uPlot_tests.js',
         ChartGPU: 'chartgpu/chartgpu_tests.js',
-       'Lcjs': 'lcjsv4/lcjs_tests.js'
+       'LCJS v4': 'lcjsv4/lcjs_tests.js',
+        'LCJS v8': 'lcjs-vLatest/lcjs_tests-vLatest.js'
     };
 
     const scriptPath = scriptPaths[chartName];
@@ -320,11 +340,19 @@ async function loadDataAndBuildUI() {
     allResultsData = await getAllTestResults();
     allResultSetsData = await getAllResultSets();
 
+    // Always ensure Local has metadata (fallback if IDB row is missing on fresh install)
+    if (!allResultSetsData.some((rs) => rs.id === RESERVED_RESULT_SET_LOCAL)) {
+        allResultSetsData.unshift({ id: RESERVED_RESULT_SET_LOCAL, label: 'Local', source: 'system' });
+    }
+
     const rsIdSet = new Set();
     const libSet = new Set();
 
     // Always include all chart libraries from CHARTS
     CHARTS.forEach((c) => libSet.add(c.name));
+
+    // Local is always present and always first, even when empty
+    rsIdSet.add(RESERVED_RESULT_SET_LOCAL);
 
     // Add any result set IDs from data
     allResultsData.forEach((r) => {
@@ -332,7 +360,7 @@ async function loadDataAndBuildUI() {
     });
 
     // Select exactly one result set by default (radio-button model).
-    // Priority: Local (if it has data) → first static set with data → first available.
+    // Priority: Local → first static set with data → first available.
     checkedResultSets = new Set();
     if (rsIdSet.has(RESERVED_RESULT_SET_LOCAL)) {
         checkedResultSets.add(RESERVED_RESULT_SET_LOCAL);
@@ -702,6 +730,7 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
 
     // Create benchmark section
     const benchSection = document.createElement('div');
+    benchSection.dataset.benchSection = testName;
     benchSection.style.marginTop = '15px';
     benchSection.style.marginBottom = '10px';
 
@@ -1049,6 +1078,11 @@ function createResultsTable(testName, testResults, runLinks) {
         cell.style.textAlign = 'center';
         cell.style.width = `${libColWidth}%`;
         cell.style.fontSize = '14px';
+
+        const chartResultsArr = testResults[chart.name];
+        const firstRes = chartResultsArr && chartResultsArr[0];
+        const fullLibName = firstRes ? `${firstRes.configLibName} ${firstRes.configLibVersion}` : chart.name;
+        cell.title = `${fullLibName} | ${getMetricLabel()}`;
 
         const wrapper = document.createElement('span');
         wrapper.style.display = 'inline-flex';
@@ -1448,6 +1482,11 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
 
         const metricLabel = getMetricLabel();
         const labelText = singleResultSet ? `${col.shortName} ${metricLabel}` : `${col.shortName} [${col.rsLabel}]`;
+
+        const colResultsArr = testResultsByRs[col.rsId]?.[col.libName];
+        const firstRes = colResultsArr && colResultsArr[0];
+        const fullLibName = firstRes ? `${firstRes.configLibName} ${firstRes.configLibVersion}` : col.shortName;
+        cell.title = `${fullLibName} | ${metricLabel}`;
 
         const wrapper = document.createElement('span');
         wrapper.style.display = 'inline-flex';

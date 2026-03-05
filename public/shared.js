@@ -29,6 +29,7 @@ const TEST_DISPLAY_ORDER = [
 const STATIC_RESULT_SETS = [
     { id: 'arm-snapdragon', label: 'ARM Snapdragon', file: '/arm-snapdragon.json' },
     { id: 'intel-i9-nvidia-4090', label: 'Intel i9 / Nvidia RTX 4090', file: '/intel-i9-nvidia-4090.json' },
+    { id: 'apple-m1-8gb', label: 'Apple M1 8GB', file: '/apple-m1-8gb.json' },
 ];
 
 function isStaticResultSet(id) {
@@ -42,10 +43,13 @@ async function autoImportStaticResultSets() {
             if (!response.ok) continue;
             const text = await response.text();
 
-            // Skip re-import when file content is unchanged
+            // Skip re-import when file content is unchanged AND data is in IDB.
+            // Must check IDB too — localStorage and IndexedDB can desync if one is
+            // cleared independently (e.g. DevTools "Clear IndexedDB" leaves localStorage intact).
             const hash = simpleHash(text);
             const hashKey = `staticResultSetHash_${id}`;
-            if (localStorage.getItem(hashKey) === hash) continue;
+            const alreadyInIDB = !!(await getResultSetById(id));
+            if (localStorage.getItem(hashKey) === hash && alreadyInIDB) continue;
 
             const records = parseSimpleJson(text);
             if (records.length === 0) continue;
@@ -120,8 +124,12 @@ function generateCharts() {
         path: 'chartgpu/chartgpu.html',
     });
     charts.push({
-        name: 'Lcjs',
+        name: 'LCJS v4',
         path: 'lcjsv4/lcjs.html'
+    });
+    charts.push({
+        name: 'LCJS v8',
+        path: 'lcjs-vLatest/lcjs-vLatest.html'
     });
     return charts;
 }
@@ -367,27 +375,51 @@ function generateResultSetId(label) {
 // Grouping helpers
 // ──────────────────────────────────────────────
 
+// Returns the canonical chart name for a full chartLibrary string (e.g. "LCJS v8 8.2.0" → "LCJS v8").
+// The legacy "Lcjs" prefix (pre-rename records in static JSON / old IDB) maps to "LCJS v4".
+function getShortLibName(chartLibrary) {
+    const chart = CHARTS.find((c) => chartLibrary.startsWith(c.name));
+    if (chart) return chart.name;
+    if (chartLibrary.startsWith('Lcjs')) return 'LCJS v4';
+    return chartLibrary;
+}
+
+// When the same library has been benchmarked at multiple versions, keep only the
+// most recent record for each (resultSetId, shortLibName, testCase) tuple.
+function deduplicateByShortLibName(allResults) {
+    const latest = {};
+    allResults.forEach((result) => {
+        const shortLib = getShortLibName(result.chartLibrary);
+        const key = `${result.resultSetId || RESERVED_RESULT_SET_LOCAL}__${shortLib}__${result.testCase}`;
+        if (!latest[key] || (result.timestamp || 0) > (latest[key].timestamp || 0)) {
+            latest[key] = result;
+        }
+    });
+    return Object.values(latest);
+}
+
 function groupResultsByTestCase(allResults) {
     const resultsByTestCase = {};
-    allResults.forEach((result) => {
+    deduplicateByShortLibName(allResults).forEach((result) => {
+        const shortLib = getShortLibName(result.chartLibrary);
         if (!resultsByTestCase[result.testCase]) {
             resultsByTestCase[result.testCase] = {};
         }
-        resultsByTestCase[result.testCase][result.chartLibrary] = result.results;
+        resultsByTestCase[result.testCase][shortLib] = result.results;
     });
     return resultsByTestCase;
 }
 
 function groupResultsByTestCaseAndResultSet(allResults) {
-    // Returns { [testCase]: { [resultSetId]: { [chartLibrary]: results[] } } }
+    // Returns { [testCase]: { [resultSetId]: { [shortLibName]: results[] } } }
     const grouped = {};
-    allResults.forEach((result) => {
+    deduplicateByShortLibName(allResults).forEach((result) => {
         const tc = result.testCase;
         const rs = result.resultSetId || RESERVED_RESULT_SET_LOCAL;
-        const lib = result.chartLibrary;
+        const shortLib = getShortLibName(result.chartLibrary);
         if (!grouped[tc]) grouped[tc] = {};
         if (!grouped[tc][rs]) grouped[tc][rs] = {};
-        grouped[tc][rs][lib] = result.results;
+        grouped[tc][rs][shortLib] = result.results;
     });
     return grouped;
 }
