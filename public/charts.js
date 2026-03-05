@@ -436,7 +436,51 @@ async function createAllSurfaces(container) {
         section.className = 'chart-section';
 
         const heading = document.createElement('h3');
-        heading.textContent = testName;
+        heading.style.cssText = 'display:flex;align-items:center;gap:12px;margin-top:0;margin-bottom:8px;';
+
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = testName;
+        heading.appendChild(titleSpan);
+
+        const copyAllBtn = document.createElement('button');
+        copyAllBtn.textContent = '📋 Copy Image';
+        copyAllBtn.style.cssText = [
+            'display:inline-flex', 'align-items:center', 'gap:4px',
+            'padding:3px 8px', 'font-size:11px', 'cursor:pointer',
+            'border:1px solid #ccc', 'border-radius:3px',
+            'background:#f8f8f8', 'color:#555', 'flex-shrink:0',
+            'font-weight:normal', 'line-height:1.4',
+        ].join(';');
+        copyAllBtn.addEventListener('click', async () => {
+            const origText = copyAllBtn.textContent;
+            copyAllBtn.textContent = 'Copying…';
+            copyAllBtn.disabled = true;
+            try {
+                const blob = await domtoimage.toBlob(section, {
+                    filter: (node) => node !== copyAllBtn,
+                    width: section.scrollWidth,
+                    height: section.scrollHeight,
+                });
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                copyAllBtn.textContent = '✓ Copied!';
+                copyAllBtn.style.color = '#28a745';
+                copyAllBtn.style.borderColor = '#28a745';
+            } catch (err) {
+                console.error('Copy section failed:', err);
+                copyAllBtn.textContent = 'Failed';
+                copyAllBtn.style.color = '#cc0000';
+                copyAllBtn.style.borderColor = '#cc0000';
+            } finally {
+                setTimeout(() => {
+                    copyAllBtn.textContent = origText;
+                    copyAllBtn.disabled = false;
+                    copyAllBtn.style.color = '#555';
+                    copyAllBtn.style.borderColor = '#ccc';
+                }, 2000);
+            }
+        });
+        heading.appendChild(copyAllBtn);
+
         section.appendChild(heading);
 
         // Build category labels from defaults
@@ -483,6 +527,7 @@ async function createAllSurfaces(container) {
         const legendDiv = document.createElement('div');
         legendDiv.id = legendDivId;
         legendDiv.className = 'legend-div';
+        legendDiv.style.marginBottom = '20px';
         section.appendChild(legendDiv);
 
         container.appendChild(section);
@@ -578,6 +623,8 @@ async function createAllSurfaces(container) {
             categoryLabels,
         });
 
+        addChartCopyOverlay(chartDiv, legendDiv);
+
         // ──────────────────────────────────────────────
         // Create Benchmark Chart (below FPS chart)
         // ──────────────────────────────────────────────
@@ -589,7 +636,6 @@ async function createAllSurfaces(container) {
         benchmarkChartDiv.id = benchmarkDivId;
         benchmarkChartDiv.className = 'benchmark-chart-div';
         benchmarkChartDiv.style.height = '200px';
-        benchmarkChartDiv.style.marginTop = '20px';
         section.appendChild(benchmarkChartDiv);
 
         // Create legend container for benchmark chart
@@ -680,6 +726,8 @@ async function createAllSurfaces(container) {
             surface: benchmarkSurface,
             wasmContext: benchmarkWasmContext,
         });
+
+        addChartCopyOverlay(benchmarkChartDiv, benchmarkLegendDiv);
     }
 }
 
@@ -1066,4 +1114,82 @@ class BenchmarkPaletteProvider {
         }
         return undefined; // Use default
     }
+}
+
+// ──────────────────────────────────────────────
+// Per-chart copy overlay
+// ──────────────────────────────────────────────
+
+function addChartCopyOverlay(chartDivEl, legendDivEl) {
+    chartDivEl.style.position = 'relative';
+
+    const btn = document.createElement('button');
+    btn.textContent = '📋';
+    btn.title = 'Copy chart to clipboard';
+    btn.style.cssText = [
+        'position:absolute', 'top:6px', 'right:6px', 'z-index:100',
+        'padding:3px 7px', 'font-size:13px', 'cursor:pointer',
+        'border:1px solid rgba(0,0,0,0.18)', 'border-radius:4px',
+        'background:rgba(255,255,255,0.82)', 'color:#333',
+        'line-height:1', 'opacity:0', 'transition:opacity 0.15s',
+    ].join(';');
+
+    // Show button only on hover so it doesn't clutter the chart
+    chartDivEl.addEventListener('mouseenter', () => { btn.style.opacity = '1'; });
+    chartDivEl.addEventListener('mouseleave', () => { btn.style.opacity = '0'; });
+
+    btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const origText = btn.textContent;
+        btn.textContent = '…';
+        btn.disabled = true;
+
+        try {
+            let blob;
+            if (legendDivEl) {
+                // Capture chart and legend separately then stitch vertically
+                const [chartBlob, legendBlob] = await Promise.all([
+                    domtoimage.toBlob(chartDivEl, { filter: (node) => node !== btn }),
+                    domtoimage.toBlob(legendDivEl),
+                ]);
+                const loadImg = (b) => new Promise((resolve) => {
+                    const img = new Image();
+                    const url = URL.createObjectURL(b);
+                    img.onload = () => { resolve(img); URL.revokeObjectURL(url); };
+                    img.src = url;
+                });
+                const [chartImg, legendImg] = await Promise.all([
+                    loadImg(chartBlob),
+                    loadImg(legendBlob),
+                ]);
+                const offscreen = document.createElement('canvas');
+                offscreen.width = Math.max(chartImg.width, legendImg.width);
+                offscreen.height = chartImg.height + legendImg.height;
+                const ctx = offscreen.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+                ctx.drawImage(chartImg, 0, 0);
+                ctx.drawImage(legendImg, 0, chartImg.height);
+                blob = await new Promise((resolve) => offscreen.toBlob(resolve, 'image/png'));
+            } else {
+                blob = await domtoimage.toBlob(chartDivEl, { filter: (node) => node !== btn });
+            }
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            btn.textContent = '✓';
+            btn.style.color = '#28a745';
+        } catch (err) {
+            console.error('Copy chart failed:', err);
+            btn.textContent = '✗';
+            btn.style.color = '#cc0000';
+        } finally {
+            setTimeout(() => {
+                btn.textContent = origText;
+                btn.disabled = false;
+                btn.style.color = '#333';
+                btn.style.opacity = '1';
+            }, 1800);
+        }
+    });
+
+    chartDivEl.appendChild(btn);
 }
