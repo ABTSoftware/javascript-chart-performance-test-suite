@@ -919,6 +919,9 @@ function updateLineSeries(surface, wasmContext, seriesDataMap) {
             surface.renderableSeries.add(lineSeries);
         }
     }
+
+    // Restore auto-range on X in case column mode had set an explicit visibleRange.
+    surface.xAxes.get(0).autoRange = SC.EAutoRange.Always;
 }
 
 function updateColumnSeries(surface, wasmContext, seriesDataMap) {
@@ -972,6 +975,13 @@ function updateColumnSeries(surface, wasmContext, seriesDataMap) {
     }
 
     surface.renderableSeries.add(collection);
+
+    // Set explicit visible range so the first/last column groups aren't clipped.
+    // Auto-range only covers the data extent (0..N-1); the column half-width (0.35)
+    // would be cut off without padding. The benchmark chart uses the same pattern.
+    if (allX.length > 0) {
+        surface.xAxes.get(0).visibleRange = new SC.NumberRange(allX[0] - 0.5, allX[allX.length - 1] + 0.5);
+    }
 }
 
 // ──────────────────────────────────────────────
