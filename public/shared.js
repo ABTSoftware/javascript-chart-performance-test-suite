@@ -29,6 +29,7 @@ const TEST_DISPLAY_ORDER = [
 const STATIC_RESULT_SETS = [
     { id: 'arm-snapdragon', label: 'ARM Snapdragon', file: '/arm-snapdragon.json' },
     { id: 'intel-i9-nvidia-4090', label: 'Intel i9 / Nvidia RTX 4090', file: '/intel-i9-nvidia-4090.json' },
+    { id: 'apple-m1-8gb', label: 'Apple M1 8GB', file: '/apple-m1-8gb.json' },
 ];
 
 function isStaticResultSet(id) {
@@ -42,10 +43,13 @@ async function autoImportStaticResultSets() {
             if (!response.ok) continue;
             const text = await response.text();
 
-            // Skip re-import when file content is unchanged
+            // Skip re-import when file content is unchanged AND data is in IDB.
+            // Must check IDB too — localStorage and IndexedDB can desync if one is
+            // cleared independently (e.g. DevTools "Clear IndexedDB" leaves localStorage intact).
             const hash = simpleHash(text);
             const hashKey = `staticResultSetHash_${id}`;
-            if (localStorage.getItem(hashKey) === hash) continue;
+            const alreadyInIDB = !!(await getResultSetById(id));
+            if (localStorage.getItem(hashKey) === hash && alreadyInIDB) continue;
 
             const records = parseSimpleJson(text);
             if (records.length === 0) continue;
