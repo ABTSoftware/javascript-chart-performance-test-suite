@@ -170,6 +170,12 @@ function getColorForLibrary(libName) {
 }
 
 function getShortLibName(libName) {
+    // Use CHARTS from shared.js (same logic as shared.js getShortLibName)
+    const chart = CHARTS.find((c) => libName.startsWith(c.name));
+    if (chart) return chart.name;
+    // Legacy "Lcjs" prefix (pre-rename records in static JSON / old IDB) → "LCJS v4"
+    if (libName.startsWith('Lcjs')) return 'LCJS v4';
+    // Fallback to LIBRARY_COLORS keys for any remaining libraries
     for (const key of Object.keys(LIBRARY_COLORS)) {
         if (libName.startsWith(key)) return key;
     }

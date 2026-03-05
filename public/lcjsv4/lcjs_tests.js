@@ -1,7 +1,7 @@
 'use strict';
 
 function eLibName() {
-    return 'Lcjs';
+    return 'LCJS v4';
 }
 
 function eLibVersion() {

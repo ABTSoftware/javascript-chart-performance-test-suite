@@ -120,7 +120,7 @@ function generateCharts() {
         path: 'chartgpu/chartgpu.html',
     });
     charts.push({
-        name: 'Lcjs',
+        name: 'LCJS v4',
         path: 'lcjsv4/lcjs.html'
     });
     charts.push({
@@ -372,9 +372,12 @@ function generateResultSetId(label) {
 // ──────────────────────────────────────────────
 
 // Returns the canonical chart name for a full chartLibrary string (e.g. "LCJS v8 8.2.0" → "LCJS v8").
+// The legacy "Lcjs" prefix (pre-rename records in static JSON / old IDB) maps to "LCJS v4".
 function getShortLibName(chartLibrary) {
     const chart = CHARTS.find((c) => chartLibrary.startsWith(c.name));
-    return chart ? chart.name : chartLibrary;
+    if (chart) return chart.name;
+    if (chartLibrary.startsWith('Lcjs')) return 'LCJS v4';
+    return chartLibrary;
 }
 
 // When the same library has been benchmarked at multiple versions, keep only the
