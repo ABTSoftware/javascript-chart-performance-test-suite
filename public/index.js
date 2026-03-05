@@ -1031,6 +1031,46 @@ async function buildResultsSection() {
             });
             heading.appendChild(copyBtn);
 
+            // Copy Image button — captures heading title + table as a PNG
+            const IMG_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/></svg>`;
+            const copyImgBtn = document.createElement('button');
+            copyImgBtn.style.cssText = [
+                'display:inline-flex', 'align-items:center', 'gap:4px',
+                'padding:3px 8px', 'font-size:11px', 'cursor:pointer',
+                'border:1px solid #ccc', 'border-radius:3px',
+                'background:#f8f8f8', 'color:#555', 'flex-shrink:0',
+                'font-weight:normal', 'line-height:1.4',
+            ].join(';');
+            copyImgBtn.innerHTML = `${IMG_ICON} Copy Image`;
+            copyImgBtn.addEventListener('click', async () => {
+                const origHTML = copyImgBtn.innerHTML;
+                copyImgBtn.innerHTML = 'Copying…';
+                copyImgBtn.disabled = true;
+                try {
+                    const blob = await domtoimage.toBlob(section, {
+                        bgcolor: '#ffffff',
+                        filter: (node) => node !== copyBtn && node !== copyImgBtn,
+                    });
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                    copyImgBtn.innerHTML = '✓ Copied!';
+                    copyImgBtn.style.color = '#28a745';
+                    copyImgBtn.style.borderColor = '#28a745';
+                } catch (err) {
+                    console.error('Copy image failed:', err);
+                    copyImgBtn.innerHTML = 'Failed';
+                    copyImgBtn.style.color = '#cc0000';
+                    copyImgBtn.style.borderColor = '#cc0000';
+                } finally {
+                    setTimeout(() => {
+                        copyImgBtn.innerHTML = origHTML;
+                        copyImgBtn.disabled = false;
+                        copyImgBtn.style.color = '#555';
+                        copyImgBtn.style.borderColor = '#ccc';
+                    }, 2000);
+                }
+            });
+            heading.appendChild(copyImgBtn);
+
             section.appendChild(table);
 
             // Add Chart Bench for this test case

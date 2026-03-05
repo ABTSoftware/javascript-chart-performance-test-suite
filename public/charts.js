@@ -682,6 +682,7 @@ async function createAllSurfaces(container) {
             labelStyle: { fontSize: 10 },
             growBy: new SC.NumberRange(0, 0.1),
             drawMinorGridLines: false,
+            maxAutoTicks: 5,
         });
         benchmarkYAxis.visibleRangeChanged.subscribe((data) => {
             benchmarkYAxis.visibleRangeProperty = new SC.NumberRange(0, data.visibleRange.max);
