@@ -460,6 +460,7 @@ async function createAllSurfaces(container) {
                     filter: (node) => node !== copyAllBtn,
                     width: section.scrollWidth,
                     height: section.scrollHeight,
+                    bgcolor: '#ffffff',
                 });
                 await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
                 copyAllBtn.textContent = '✓ Copied!';
