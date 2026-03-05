@@ -456,10 +456,9 @@ async function createAllSurfaces(container) {
             copyAllBtn.textContent = 'Copying…';
             copyAllBtn.disabled = true;
             try {
-                const blob = await domtoimage.toBlob(section, {
-                    filter: (node) => node !== copyAllBtn,
-                    width: section.scrollWidth,
-                    height: section.scrollHeight,
+                const blob = await domtoimage.toBlob(chartsWrapper, {
+                    width: chartsWrapper.scrollWidth,
+                    height: chartsWrapper.scrollHeight,
                     bgcolor: '#ffffff',
                 });
                 await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
@@ -483,6 +482,11 @@ async function createAllSurfaces(container) {
         heading.appendChild(copyAllBtn);
 
         section.appendChild(heading);
+
+        // Wrapper for the charts only — used as the capture target for "Copy Image"
+        // so the heading (which duplicates the chart title) is excluded from the snapshot.
+        const chartsWrapper = document.createElement('div');
+        section.appendChild(chartsWrapper);
 
         // Build category labels from defaults
         const configMap = new Map();
@@ -522,14 +526,14 @@ async function createAllSurfaces(container) {
         const chartDiv = document.createElement('div');
         chartDiv.id = divId;
         chartDiv.className = 'chart-div';
-        section.appendChild(chartDiv);
+        chartsWrapper.appendChild(chartDiv);
 
         // Create legend container below the chart
         const legendDiv = document.createElement('div');
         legendDiv.id = legendDivId;
         legendDiv.className = 'legend-div';
         legendDiv.style.marginBottom = '20px';
-        section.appendChild(legendDiv);
+        chartsWrapper.appendChild(legendDiv);
 
         container.appendChild(section);
 
@@ -637,13 +641,13 @@ async function createAllSurfaces(container) {
         benchmarkChartDiv.id = benchmarkDivId;
         benchmarkChartDiv.className = 'benchmark-chart-div';
         benchmarkChartDiv.style.height = '200px';
-        section.appendChild(benchmarkChartDiv);
+        chartsWrapper.appendChild(benchmarkChartDiv);
 
         // Create legend container for benchmark chart
         const benchmarkLegendDiv = document.createElement('div');
         benchmarkLegendDiv.id = benchmarkLegendDivId;
         benchmarkLegendDiv.className = 'legend-div';
-        section.appendChild(benchmarkLegendDiv);
+        chartsWrapper.appendChild(benchmarkLegendDiv);
 
         container.appendChild(section);
 
