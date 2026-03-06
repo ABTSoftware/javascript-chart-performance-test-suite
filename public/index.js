@@ -48,6 +48,21 @@ function isMetricHigherBetter() {
     return selectedMetric === 'fps' || selectedMetric === 'frames' || selectedMetric === 'ingestion';
 }
 
+function getBestColumnLabel() {
+    return selectedMetric === 'memory' ? 'Best' : 'Fastest';
+}
+
+function getBestCriterionTooltip() {
+    switch (selectedMetric) {
+        case 'fps':          return 'FPS: Higher is better';
+        case 'memory':       return 'Memory (MB): Lower is better';
+        case 'initialization': return 'Init Time: Lower is better';
+        case 'frames':       return 'Total Frames: Higher is better';
+        case 'ingestion':    return 'Ingestion Rate: Higher is better';
+        default:             return 'Higher is better';
+    }
+}
+
 function formatMetricValue(value) {
     if (value === null || value === undefined) return null;
     switch (selectedMetric) {
@@ -725,6 +740,50 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
     // If no scores at all, return null
     if (benchScores.length === 0) return null;
 
+    // Compute best-wins per library: for each param combo find the library with
+    // the best metric value (respecting isMetricHigherBetter) and tally the count.
+    const bestWins = {};
+    allParamCombos.forEach((params) => {
+        const rowData = [];
+        const matchesParams = (r) => r.config &&
+            (r.config.points || 0) === params.points &&
+            (r.config.series || 1) === params.series &&
+            (r.config.charts || 1) === params.charts;
+
+        if (showAllMode) {
+            Object.entries(testResults).forEach(([rsId, libResults]) => {
+                if (!checkedResultSets.has(rsId)) return;
+                Object.entries(libResults).forEach(([libName, results]) => {
+                    const shortName = getShortLibName(libName);
+                    if (!checkedLibraries.has(shortName)) return;
+                    if (!results || !Array.isArray(results)) return;
+                    const match = results.find(matchesParams);
+                    if (match && !match.isErrored) {
+                        const val = getMetricValue(match, testName);
+                        if (val !== null) rowData.push({ key: `${rsId}|${shortName}`, val });
+                    }
+                });
+            });
+        } else {
+            Object.entries(testResults).forEach(([libName, results]) => {
+                const shortName = getShortLibName(libName);
+                if (!checkedLibraries.has(shortName)) return;
+                if (!results || !Array.isArray(results)) return;
+                const match = results.find(matchesParams);
+                if (match && !match.isErrored) {
+                    const val = getMetricValue(match, testName);
+                    if (val !== null) rowData.push({ key: shortName, val });
+                }
+            });
+        }
+
+        if (rowData.length > 0) {
+            const higherBetter = isMetricHigherBetter();
+            const best = rowData.reduce((a, b) => higherBetter ? (a.val >= b.val ? a : b) : (a.val <= b.val ? a : b));
+            bestWins[best.key] = (bestWins[best.key] || 0) + 1;
+        }
+    });
+
     // Sort by score descending (0 scores will appear at bottom)
     benchScores.sort((a, b) => b.score - a.score);
 
@@ -804,6 +863,14 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
     scoreHeader.style.padding = '6px 10px';
     scoreHeader.style.textAlign = 'center';
 
+    const winsHeader = benchHeaderRow.insertCell();
+    winsHeader.style.border = '1px solid #ccc';
+    winsHeader.style.padding = '6px 10px';
+    winsHeader.style.textAlign = 'center';
+    winsHeader.style.cursor = 'help';
+    winsHeader.title = getBestCriterionTooltip();
+    winsHeader.innerHTML = `${getBestColumnLabel()} Wins <span style="font-size:10px;font-weight:normal;opacity:0.55">ⓘ</span>`;
+
     // Data rows
     const maxScore = benchScores.length > 0 ? benchScores[0].score : 0;
 
@@ -859,6 +926,19 @@ function createChartBenchTable(testName, testResults, showAllMode, resultSetMap)
             scoreCell.style.backgroundColor = '#f8d7da';
             scoreCell.style.color = '#721c24';
         }
+
+        // Wins cell
+        const shortName = getShortLibName(entry.libName);
+        const winsKey = showAllMode ? `${entry.rsId}|${shortName}` : shortName;
+        const wins = bestWins[winsKey] || 0;
+        const winsCell = row.insertCell();
+        winsCell.textContent = wins > 0 ? wins : '-';
+        winsCell.style.border = '1px solid #ccc';
+        winsCell.style.padding = '6px 10px';
+        winsCell.style.textAlign = 'center';
+        winsCell.style.fontWeight = wins > 0 ? 'bold' : 'normal';
+        winsCell.style.color = wins > 0 ? '#2e7d32' : '#999';
+        if (wins > 0) winsCell.style.backgroundColor = '#e8f5e9';
     });
 
     benchSection.appendChild(benchTable);
@@ -1097,7 +1177,8 @@ function createResultsTable(testName, testResults, runLinks) {
 
     const visibleCharts = CHARTS.filter((c) => checkedLibraries.has(c.name));
     const paramsColWidth = 15;
-    const libColWidth = visibleCharts.length > 0 ? (100 - paramsColWidth) / visibleCharts.length : 85;
+    const bestColWidth = 8;
+    const libColWidth = visibleCharts.length > 0 ? (100 - paramsColWidth - bestColWidth) / visibleCharts.length : 77;
 
     // Create header row
     const headerRow = table.insertRow();
@@ -1152,6 +1233,15 @@ function createResultsTable(testName, testResults, runLinks) {
 
         cell.appendChild(wrapper);
     });
+
+    const bestHeader = headerRow.insertCell();
+    bestHeader.style.border = '1px solid #ccc';
+    bestHeader.style.padding = '8px';
+    bestHeader.style.textAlign = 'center';
+    bestHeader.style.width = `${bestColWidth}%`;
+    bestHeader.style.cursor = 'help';
+    bestHeader.title = getBestCriterionTooltip();
+    bestHeader.innerHTML = `${getBestColumnLabel()} <span style="font-size:10px;font-weight:normal;opacity:0.55">ⓘ</span>`;
 
     // Get all possible parameter combinations from test configurations
     const paramCombinations = new Set();
@@ -1390,6 +1480,7 @@ function createResultsTable(testName, testResults, runLinks) {
         paramCell.style.padding = '8px';
         paramCell.style.fontWeight = 'bold';
 
+        const rowData = [];
         visibleCharts.forEach((chart) => {
             const cell = row.insertCell();
             cell.style.border = '1px solid #ccc';
@@ -1446,12 +1537,30 @@ function createResultsTable(testName, testResults, runLinks) {
             if (metricValue !== null) {
                 cell.textContent = formatMetricValue(metricValue);
                 cell.style.backgroundColor = getFpsHeatmapColor(metricValue, minMetric, maxMetric);
+                rowData.push({ name: chart.name, value: metricValue });
             } else if (!cell.textContent) {
                 cell.textContent = '-';
                 cell.style.backgroundColor = '#f9f9f9';
                 cell.style.color = '#999';
             }
         });
+
+        const bestCell = row.insertCell();
+        bestCell.style.border = '1px solid #ccc';
+        bestCell.style.padding = '8px';
+        bestCell.style.textAlign = 'center';
+        if (rowData.length > 0) {
+            const higherBetter = isMetricHigherBetter();
+            const best = rowData.reduce((a, b) => higherBetter ? (a.value >= b.value ? a : b) : (a.value <= b.value ? a : b));
+            bestCell.textContent = best.name;
+            bestCell.title = getBestCriterionTooltip();
+            bestCell.style.backgroundColor = '#e8f5e9';
+            bestCell.style.color = '#2e7d32';
+            bestCell.style.fontWeight = 'bold';
+        } else {
+            bestCell.textContent = '-';
+            bestCell.style.color = '#999';
+        }
     });
 
     return table;
@@ -1499,7 +1608,8 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
     headerRow.style.fontWeight = 'bold';
 
     const paramsColWidth = 15;
-    const libColWidth = columns.length > 0 ? (100 - paramsColWidth) / columns.length : 85;
+    const bestColWidth = 8;
+    const libColWidth = columns.length > 0 ? (100 - paramsColWidth - bestColWidth) / columns.length : 77;
 
     const paramsHeader = headerRow.insertCell();
     paramsHeader.textContent = 'Parameters';
@@ -1556,6 +1666,15 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
         cell.appendChild(wrapper);
     });
 
+    const bestHeader = headerRow.insertCell();
+    bestHeader.style.border = '1px solid #ccc';
+    bestHeader.style.padding = '8px';
+    bestHeader.style.textAlign = 'center';
+    bestHeader.style.width = `${bestColWidth}%`;
+    bestHeader.style.cursor = 'help';
+    bestHeader.title = getBestCriterionTooltip();
+    bestHeader.innerHTML = `${getBestColumnLabel()} <span style="font-size:10px;font-weight:normal;opacity:0.55">ⓘ</span>`;
+
     // Collect parameter combinations from all columns
     const paramCombinations = new Set();
     columns.forEach((col) => {
@@ -1609,6 +1728,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
         paramCell.style.padding = '8px';
         paramCell.style.fontWeight = 'bold';
 
+        const rowData = [];
         columns.forEach((col) => {
             const cell = row.insertCell();
             cell.style.border = '1px solid #ccc';
@@ -1647,12 +1767,31 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
             if (metricValue !== null) {
                 cell.textContent = formatMetricValue(metricValue);
                 cell.style.backgroundColor = getFpsHeatmapColor(metricValue, minMetric, maxMetric);
+                const colLabel = singleResultSet ? col.shortName : `${col.shortName} [${col.rsLabel}]`;
+                rowData.push({ name: colLabel, value: metricValue });
             } else if (!cell.textContent) {
                 cell.textContent = '-';
                 cell.style.backgroundColor = '#f9f9f9';
                 cell.style.color = '#999';
             }
         });
+
+        const bestCell = row.insertCell();
+        bestCell.style.border = '1px solid #ccc';
+        bestCell.style.padding = '8px';
+        bestCell.style.textAlign = 'center';
+        if (rowData.length > 0) {
+            const higherBetter = isMetricHigherBetter();
+            const best = rowData.reduce((a, b) => higherBetter ? (a.value >= b.value ? a : b) : (a.value <= b.value ? a : b));
+            bestCell.textContent = best.name;
+            bestCell.title = getBestCriterionTooltip();
+            bestCell.style.backgroundColor = '#e8f5e9';
+            bestCell.style.color = '#2e7d32';
+            bestCell.style.fontWeight = 'bold';
+        } else {
+            bestCell.textContent = '-';
+            bestCell.style.color = '#999';
+        }
     });
 
     return table;
