@@ -1816,8 +1816,9 @@ function getFpsHeatmapColor(value, minValue, maxValue) {
     let normalised;
 
     if (selectedMetric === 'fps') {
-        // FPS: absolute scale 0 (red) to 60 (green)
-        normalised = Math.min(Math.max(value / 60, 0), 1);
+        // FPS: scale 0 (red) to green at the max FPS in the table, capped at 60
+        const fpsGreenMax = Math.min(maxValue, 60);
+        normalised = fpsGreenMax > 0 ? Math.min(Math.max(value / fpsGreenMax, 0), 1) : 0;
     } else if (selectedMetric === 'memory' || selectedMetric === 'initialization') {
         // Memory and Init Time: lower is better
         // min in table (0 or lowest) = green (1), max in table = red (0)
