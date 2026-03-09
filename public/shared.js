@@ -30,6 +30,7 @@ const STATIC_RESULT_SETS = [
     { id: 'arm-snapdragon', label: 'ARM Snapdragon', file: '/arm-snapdragon.json' },
     { id: 'intel-i9-nvidia-4090', label: 'Intel i9 / Nvidia RTX 4090', file: '/intel-i9-nvidia-4090.json' },
     { id: 'apple-m1-8gb', label: 'Apple M1 8GB', file: '/apple-m1-8gb.json' },
+    { id: 'raspberry-pi-5-8gb', label: 'Raspberry Pi 5 8GB', file: '/raspberry-pi-5-8GB.json' },
 ];
 
 function isStaticResultSet(id) {
