@@ -401,6 +401,7 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
         NumberRange,
         EAutoRange,
         FastLineRenderableSeries,
+        XyScatterRenderableSeries,
         EllipsePointMarker,
         SciChartDefaults
     } = SciChart;
@@ -469,9 +470,13 @@ function ePointLinePerformanceTest(seriesNum, pointsNum) {
             dataSeries,
             strokeThickness: 2,
             stroke: '#00FF00',
-            pointMarker: new EllipsePointMarker(wasmContext, { width: 10, height: 10, fill: "White", stroke: "#00FF00", strokeThickness: 1})
+        });
+        const scatterSeries = new XyScatterRenderableSeries(wasmContext, {
+            dataSeries,
+            pointMarker: new EllipsePointMarker(wasmContext, { width: 10, height: 10, fill: "White", stroke: "#00FF00", strokeThickness: 1}),
         });
         sciChartSurface.renderableSeries.add(lineSeries);
+        sciChartSurface.renderableSeries.add(scatterSeries);
 
         const { xValuesArr, yValuesArr } = DATA;
         dataSeries.appendRange(xValuesArr, yValuesArr);
