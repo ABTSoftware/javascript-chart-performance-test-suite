@@ -241,6 +241,8 @@ async function updateResultCells() {
         const newTable = newBench.querySelector('table');
         if (oldTable && newTable) oldTable.replaceWith(newTable);
     });
+
+    recalculateBestCells();
 }
 
 function applyResultToCell(cell, matchingResult, testName, minMetric, maxMetric) {
@@ -1490,6 +1492,7 @@ function createResultsTable(testName, testResults, runLinks) {
             cell.dataset.test = testName;
             cell.dataset.chart = chart.name;
             cell.dataset.params = paramStr;
+            cell.dataset.colLabel = chart.name;
 
             // If the library doesn't support this test, show UNSUPPORTED and stop
             const supportedTests = testSupportCache.get(chart.name) || Object.values(E_TEST_NAME);
@@ -1546,6 +1549,7 @@ function createResultsTable(testName, testResults, runLinks) {
         });
 
         const bestCell = row.insertCell();
+        bestCell.dataset.bestCell = '1';
         bestCell.style.border = '1px solid #ccc';
         bestCell.style.padding = '8px';
         bestCell.style.textAlign = 'center';
@@ -1739,6 +1743,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
             cell.dataset.rs = col.rsId;
             cell.dataset.chart = col.libName;
             cell.dataset.params = paramStr;
+            cell.dataset.colLabel = singleResultSet ? col.shortName : `${col.shortName} [${col.rsLabel}]`;
 
             const results = testResultsByRs[col.rsId]?.[col.libName];
             let metricValue = null;
@@ -1777,6 +1782,7 @@ function createResultsTableAllMode(testName, testResultsByRs, resultSetMap, runL
         });
 
         const bestCell = row.insertCell();
+        bestCell.dataset.bestCell = '1';
         bestCell.style.border = '1px solid #ccc';
         bestCell.style.padding = '8px';
         bestCell.style.textAlign = 'center';
@@ -1802,6 +1808,34 @@ function getShortLibName(libName) {
         if (libName.startsWith(chart.name)) return chart.name;
     }
     return libName;
+}
+
+function recalculateBestCells() {
+    const higherBetter = isMetricHigherBetter();
+    document.querySelectorAll('[data-best-cell]').forEach((bestCell) => {
+        const row = bestCell.parentElement;
+        if (!row) return;
+        const rowData = [];
+        row.querySelectorAll('[data-result-cell]').forEach((cell) => {
+            if (cell.dataset.unsupported) return;
+            const value = parseFloat(cell.textContent);
+            if (isNaN(value) || !cell.dataset.colLabel) return;
+            rowData.push({ name: cell.dataset.colLabel, value });
+        });
+        if (rowData.length > 0) {
+            const best = rowData.reduce((a, b) => higherBetter ? (a.value >= b.value ? a : b) : (a.value <= b.value ? a : b));
+            bestCell.textContent = best.name;
+            bestCell.title = getBestCriterionTooltip();
+            bestCell.style.backgroundColor = '#e8f5e9';
+            bestCell.style.color = '#2e7d32';
+            bestCell.style.fontWeight = 'bold';
+        } else {
+            bestCell.textContent = '-';
+            bestCell.style.backgroundColor = '';
+            bestCell.style.color = '#999';
+            bestCell.style.fontWeight = '';
+        }
+    });
 }
 
 function getFpsHeatmapColor(value, minValue, maxValue) {
