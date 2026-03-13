@@ -28,9 +28,7 @@ This Test suite performs JavaScript Chart stress tests and compares the followin
 - Apache eCharts (with GL series types where available)
 - uPlot
 - ChartGPU
-- LightningChart (LCJS)*
-
-> LightningChart.js (LCJS) v4.2.2 was chosen for the test, as this is the latest version which has a community license and does not require a downloadable trial key. The latest version (v8) may achieve different results. 
+- LightningChart (LCJS)
 
 ## Important Methodology Notes & Metrics
 
@@ -169,220 +167,228 @@ with the following hardware, these test results are achieved:
 
 ### Randomised Scatter Series Performance Test Results
 
-In these tests, uPlot does not support unsorted scatter data, so data must be sorted first. Several charts either hit error states "Hanging" 
+SciChart.js scored the highest FPS in 8 out of 9 test configurations, with ChartGPU taking 1 win at the smallest data size (1,000 points). SciChart.js maintained over 237 FPS up to 200,000 points. At 50,000 points, HighCharts (20.00 FPS), Chart.js (2.08 FPS), eCharts and uPlot did not complete the test at this level, while Plotly.js (87.58 FPS), ChartGPU (199.55 FPS) and LCJS v8 (196.33 FPS) remained competitive at that scale. At 10 million points, SciChart.js recorded 5.39 FPS -- approximately 41% faster than LCJS v8 (3.81 FPS) and 7x faster than ChartGPU (0.76 FPS). At 1 million points, SciChart.js (59.33 FPS) was approximately 55% faster than LCJS v8 (38.40 FPS), 17x faster than HighCharts (3.46 FPS) and 26x faster than Plotly.js (2.31 FPS).
 
-In this test, SciChart comes out as the clear winner, able to render 1,000,000 points at ~60 FPS, measuring the fastest in 8/9 test cases and able to render a total of 10,000,000 points. 
-In this test case, SciChart was ~3x faster than the closest competitor (LightningChart, LCJS), ~7x faster than ChartGPU, ~12x faster than HighCharts, ~26x faster than Plotly, ~475x faster than chart.js and was able to handle 1000x more data than uPlot and eCharts.
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ChartGPU | 1,000 points, 1 series | 236.99 | 71.75 | 80.78 | 147.05 | 210.21 | 196.68 | 237.84 | 224.58 |
+| SciChart.js | 10,000 points, 1 series | 239.32 | 48.94 | 9.91 | 132.32 | 44.41 | 10.73 | 239.11 | 234.69 |
+| SciChart.js | 50,000 points, 1 series | 239.21 | 20.00 | 2.08 | 87.58 | Hanging | Hanging | 199.55 | 196.33 |
+| SciChart.js | 100,000 points, 1 series | 239.37 | 13.31 | 1.06 | 23.92 | Skipped | Skipped | 106.22 | 131.13 |
+| SciChart.js | 200,000 points, 1 series | 237.52 | 10.54 | 0.50 | 10.54 | Skipped | Skipped | 41.09 | 97.84 |
+| SciChart.js | 500,000 points, 1 series | 98.71 | 6.25 | Skipped | 4.54 | Skipped | Skipped | 15.94 | 67.14 |
+| SciChart.js | 1,000,000 points, 1 series | 59.33 | 3.46 | Skipped | 2.31 | Skipped | Skipped | 6.80 | 38.40 |
+| SciChart.js | 5,000,000 points, 1 series | 10.54 | 0.89 | Skipped | 0.37 | Skipped | Skipped | 1.57 | 7.32 |
+| SciChart.js | 10,000,000 points, 1 series | 5.39 | Skipped | Skipped | Skipped | Skipped | Skipped | 0.76 | 3.81 |
 
-|    FASTEST | Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) | Chart GPU (Avg FPS) | LCJS (Avg FPS) |
-|-----------:|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|:-------------------:|:--------------:|
-|   SciChart | 1000 points, 1 series     |        238.08         |        71.75         |       80.78        |       150.39        |          210.21          |     196.68      |       237.84        |     207.09     |
-|   ChartGPU | 10000 points, 1 series    |        238.81         |        48.94         |        9.91        |       137.14        |          44.41           |      10.73      |       239.11        |     215.28     |
-|   SciChart | 50000 points, 1 series    |        239.04         |        20.00         |        2.08        |        85.39        |         HANGING          |     HANGING     |       199.55        |     170.62     |
-|   SciChart | 100000 points, 1 series   |        238.36         |        13.31         |        1.06        |        23.92        |         SKIPPED          |     SKIPPED     |       106.22        |     135.27     |
-|   SciChart | 200000 points, 1 series   |        237.52         |        10.54         |        0.50        |        10.54        |         SKIPPED          |     SKIPPED     |        41.09        |     86.24      |
-|   SciChart | 500000 points, 1 series   |         98.71         |         6.25         |      SKIPPED       |        5.73         |         SKIPPED          |     SKIPPED     |        15.94        |     43.58      |
-|   SciChart | 1000000 points, 1 series  |         59.33         |         3.46         |      SKIPPED       |        2.65         |         SKIPPED          |     SKIPPED     |        6.80         |     22.82      |
-|   SciChart | 5000000 points, 1 series  |         10.54         |         0.89         |      SKIPPED       |        0.40         |         SKIPPED          |     SKIPPED     |        1.57         |      4.20      |
-|   SciChart | 10000000 points, 1 series |         5.39          |       SKIPPED        |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |        0.76         |      1.73      |
+### Randomised XY Line Series (unsorted data) Performance Test Results
 
-### Randomlised XY Line Series (unsorted data) performance test results
+SciChart.js scored the highest FPS in all 9 out of 9 test configurations. This test renders polylines with unsorted XY data, which is particularly demanding on rendering engines. SciChart.js maintained over 236 FPS through 50,000 points and sustained 50.31 FPS at 1 million points. At 10 million points, SciChart.js recorded 2.86 FPS -- approximately 4x faster than LCJS v8 (0.66 FPS) and 5x faster than ChartGPU (0.53 FPS). At 1 million points, SciChart.js (50.31 FPS) was approximately 5x faster than LCJS v8 (9.99 FPS), 10x faster than ChartGPU (4.99 FPS) and 16x faster than HighCharts (3.18 FPS). Apache eCharts and uPlot both reported very low FPS at 50,000 points (0.21 and 0.11 respectively) and did not continue beyond 100,000 points. Chart.js did not continue beyond 50,000 points.
 
-The randomised Xy Line series test case is similar to the scatter plot test, except that it renders polylines with unsorted Xy data.  
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| SciChart.js | 1,000 points, 1 series | 236.96 | 55.40 | 73.57 | 133.62 | 62.36 | 52.64 | 235.87 | 224.06 |
+| SciChart.js | 10,000 points, 1 series | 237.37 | 50.26 | 3.37 | 113.66 | 3.77 | 3.77 | 231.68 | 220.41 |
+| SciChart.js | 50,000 points, 1 series | 236.85 | 26.39 | 0.26 | 58.66 | 0.21 | 0.11 | 93.34 | 162.51 |
+| SciChart.js | 100,000 points, 1 series | 236.76 | 16.89 | Skipped | 17.46 | Skipped | Skipped | 45.53 | 87.89 |
+| SciChart.js | 200,000 points, 1 series | 194.96 | 12.19 | Skipped | 8.18 | Skipped | Skipped | 21.97 | 46.91 |
+| SciChart.js | 500,000 points, 1 series | 89.43 | 5.86 | Skipped | 2.92 | Skipped | Skipped | 9.27 | 19.33 |
+| SciChart.js | 1,000,000 points, 1 series | 50.31 | 3.18 | Skipped | 1.30 | Skipped | Skipped | 4.99 | 9.99 |
+| SciChart.js | 5,000,000 points, 1 series | 9.39 | 0.81 | Skipped | Hanging | Skipped | Skipped | 1.20 | 1.80 |
+| SciChart.js | 10,000,000 points, 1 series | 2.86 | Skipped | Skipped | Skipped | Skipped | Skipped | 0.53 | 0.66 |
 
-SciChart comes out at the clear winner, with the highest/fastest frame rate in 9 out of 9 tests, able to render 1,000,000 points dynamically updating at 50.31 FPS. In this test case, SciChart was 5x faster than the closest competitor (LightningChart, LCJS)
-and 10x faster than ChartGPU, ~16x faster than HighCharts, ~39x faster than Plotly.js, ~915x faster than Chart.js, ~1133x faster than Apache eCharts and ~2163x faster than uPlot. 
+### Sorted Point Series (Updating Y-Values) Performance Test Results
 
-|  FASTEST | Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) |  Apache ECharts (Avg FPS)  | uPlot (Avg FPS) | Chart GPU (Avg FPS) | LCJS (Avg FPS) |
-|---------:|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:--------------------------:|:---------------:|:-------------------:|:--------------:|
-| SciChart | 1000 points, 1 series     |        237.79         |        55.40         |       73.57        |       133.62        |           62.36            |      52.64      |       235.87        |     218.47     |
-| SciChart | 10000 points, 1 series    |        238.23         |        50.26         |        3.37        |       113.66        |            3.77            |      3.77       |       231.68        |     212.90     |
-| SciChart | 50000 points, 1 series    |        237.94         |        26.39         |        0.26        |        58.66        |            0.21            |      0.11       |        93.34        |     100.58     |
-| SciChart | 100000 points, 1 series   |        236.58         |        16.89         |      SKIPPED       |        17.46        |          SKIPPED           |     SKIPPED     |        45.53        |     74.43      |
-| SciChart | 200000 points, 1 series   |        194.96         |        12.19         |      SKIPPED       |        8.18         |          SKIPPED           |     SKIPPED     |        21.97        |     45.27      |
-| SciChart | 500000 points, 1 series   |         89.43         |         5.86         |      SKIPPED       |        2.92         |          SKIPPED           |     SKIPPED     |        9.27         |     21.59      |
-| SciChart | 1000000 points, 1 series  |         50.31         |         3.18         |      SKIPPED       |        1.30         |          SKIPPED           |     SKIPPED     |        4.99         |      9.17      |
-| SciChart | 5000000 points, 1 series  |         9.39          |         0.81         |      SKIPPED       |       HANGING       |          SKIPPED           |     SKIPPED     |        1.20         |      1.32      |
-| SciChart | 10000000 points, 1 series |         2.86          |       SKIPPED        |      SKIPPED       |       SKIPPED       |          SKIPPED           |     SKIPPED     |        0.53         |      0.76      |
+SciChart.js scored the highest FPS in 7 out of 9 test configurations, with ChartGPU taking 2 wins at the smallest data sizes (1,000 and 10,000 points). This test measures the performance of updating Y-values on a sorted point series. SciChart.js maintained over 232 FPS through 100,000 points and recorded 62.94 FPS at 1 million points. At 10 million points, SciChart.js recorded 4.82 FPS -- approximately 5x faster than both ChartGPU (0.95 FPS) and LCJS v8 (0.91 FPS). At 1 million points, SciChart.js (62.94 FPS) was approximately 5x faster than LCJS v8 (13.11 FPS), 8x faster than ChartGPU (8.22 FPS) and 18x faster than HighCharts (3.48 FPS). eCharts did not continue beyond 50,000 points, and uPlot did not complete the test at that threshold.
 
-### Column series static data test results
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ChartGPU | 1,000 points, 1 series | 232.98 | 74.86 | 53.40 | 151.60 | 47.02 | 57.99 | 237.76 | 227.58 |
+| ChartGPU | 10,000 points, 1 series | 235.00 | 58.80 | 9.72 | 114.92 | 5.80 | 12.79 | 238.45 | 213.43 |
+| SciChart.js | 50,000 points, 1 series | 235.87 | 27.16 | 1.79 | 60.23 | 0.63 | Hanging | 179.31 | 231.88 |
+| SciChart.js | 100,000 points, 1 series | 234.77 | 17.59 | 0.93 | 23.65 | Skipped | Skipped | 111.27 | 150.75 |
+| SciChart.js | 200,000 points, 1 series | 205.01 | 12.64 | Skipped | 11.19 | Skipped | Skipped | 48.18 | 79.47 |
+| SciChart.js | 500,000 points, 1 series | 94.45 | 6.67 | Skipped | 4.24 | Skipped | Skipped | 17.26 | 27.99 |
+| SciChart.js | 1,000,000 points, 1 series | 62.94 | 3.48 | Skipped | 1.95 | Skipped | Skipped | 8.22 | 13.11 |
+| SciChart.js | 5,000,000 points, 1 series | 11.69 | 0.90 | Skipped | 0.37 | Skipped | Skipped | 1.81 | 2.25 |
+| SciChart.js | 10,000,000 points, 1 series | 4.82 | Skipped | Skipped | Skipped | Skipped | Skipped | 0.95 | 0.91 |
 
-In Static Column charts, SciChart excels, able to draw 10,000,000 columns or bars at ~240 FPS. The reason is the data here is not updating, this just measures static drawing of a large dataset.
+### Column Series Static Data Test Results
 
-In this test case, SciChart was the clear winner scoring 'Fastest' in 9 out of 9 test cases, with all test scores ~240 FPS and able to render: ~35x faster than LightningChart (LCJS) at 10k points, and handling up to 1000x more data than LCJS,
-~298x faster than HighCharts, ~137x faster than Chart.js, ~771x faster than Plotly.js, ~7x faster than Apache eCharts and handling 100x more data than eCharts, ~291x faster than uPlot and ~239x faster than ChartGPU.
+SciChart.js scored the highest FPS in all 9 out of 9 test configurations. This test measures static rendering of column/bar charts. SciChart.js maintained approximately 235–239 FPS across all data sizes up to 10 million points, demonstrating that its column rendering performance is nearly independent of data volume. At 10 million points, SciChart.js (237.03 FPS) was approximately 239x faster than ChartGPU (0.99 FPS), the only other library that could render at that scale. LCJS v8 performed well through 200,000 points (215.90 FPS) but did not complete the test at 500,000 points. At 1 million points, SciChart.js (238.79 FPS) was approximately 14x faster than ChartGPU (17.26 FPS) and 80x faster than HighCharts (3.00 FPS). Chart.js did not continue beyond 100,000 points, Plotly.js did not continue beyond 100,000 points, and Apache eCharts encountered an error at 200,000 points and did not continue beyond that threshold.
 
-|       FASTEST | Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) | Chart GPU (Avg FPS) | LCJS (Avg FPS)  |
-|--------------:|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|:-------------------:|:---------------:|
-|      SciChart | 1000 points, 1 series     |        237.03         |        57.52         |       127.22       |        83.97        |          20.79           |     231.03      |       235.13        |      61.69      |
-|      SciChart | 10000 points, 1 series    |        238.34         |        60.97         |       19.80        |        9.15         |          95.29           |     166.52      |       218.53        |      6.77       |
-|      SciChart | 50000 points, 1 series    |        239.09         |        21.56         |        3.80        |        1.09         |          91.42           |      32.96      |       184.87        |     HANGING     |
-|      SciChart | 100000 points, 1 series   |        239.14         |        13.77         |        1.75        |        0.31         |          34.12           |      15.52      |       115.12        |     SKIPPED     |
-|      SciChart | 200000 points, 1 series   |        239.36         |         9.97         |      SKIPPED       |       SKIPPED       |    ERROR_APPEND_DATA     |      6.57       |        70.48        |     SKIPPED     |
-|      SciChart | 500000 points, 1 series   |        239.44         |         6.10         |      SKIPPED       |       SKIPPED       |         SKIPPED          |      2.17       |        35.19        |     SKIPPED     |
-|      SciChart | 1000000 points, 1 series  |        238.79         |         3.00         |      SKIPPED       |       SKIPPED       |         SKIPPED          |      0.82       |        17.26        |     SKIPPED     |
-|      SciChart | 5000000 points, 1 series  |        238.23         |         0.80         |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |        2.12         |     SKIPPED     |
-|      SciChart | 10000000 points, 1 series |        237.03         |       SKIPPED        |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |        0.99         |     SKIPPED     |
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| SciChart.js | 1,000 points, 1 series | 235.55 | 57.52 | 127.22 | 83.97 | 20.79 | 231.03 | 235.13 | 224.11 |
+| SciChart.js | 10,000 points, 1 series | 238.56 | 60.97 | 19.80 | 9.15 | 95.29 | 166.52 | 218.53 | 234.57 |
+| SciChart.js | 50,000 points, 1 series | 239.09 | 21.56 | 3.80 | 1.09 | 91.42 | 32.96 | 184.87 | 206.34 |
+| SciChart.js | 100,000 points, 1 series | 239.14 | 13.77 | 1.75 | 0.31 | 34.12 | 15.52 | 115.12 | 131.22 |
+| SciChart.js | 200,000 points, 1 series | 239.36 | 9.97 | Skipped | Skipped | Error | 6.57 | 70.48 | 215.90 |
+| SciChart.js | 500,000 points, 1 series | 239.44 | 6.10 | - | Skipped | Skipped | 2.17 | 35.19 | Hanging |
+| SciChart.js | 1,000,000 points, 1 series | 238.79 | 3.00 | - | Skipped | Skipped | 0.82 | 17.26 | Skipped |
+| SciChart.js | 5,000,000 points, 1 series | 238.23 | 0.80 | - | Skipped | Skipped | Skipped | 2.12 | Skipped |
+| SciChart.js | 10,000,000 points, 1 series | 237.03 | Skipped | - | Skipped | Skipped | Skipped | 0.99 | Skipped |
 
-### Candlestick chart static data test results
+### Candlestick Chart Static Data Test Results
 
-In static candlestick charts, SciChart excels, able to draw 10,000,000 candles at ~230 FPS. Candlesticks are complex geometry including a box with an outline, and high/low wick. As a result several chart libraries fail to handle large volumes of candles at reasonable levels of performance.
+SciChart.js scored the highest FPS in 7 out of 9 test configurations, with ChartGPU taking 2 wins at the smallest data sizes (1,000 and 10,000 points). Candlesticks are complex geometry (box with outline and high/low wick), making this a demanding test for rendering engines. SciChart.js maintained over 228 FPS across all data sizes up to 10 million candles. At 10 million points, SciChart.js (228.04 FPS) was approximately 42x faster than ChartGPU (5.49 FPS), the only other library that could render at that scale. At 1 million points, SciChart.js (234.66 FPS) was approximately 5x faster than ChartGPU (47.02 FPS) and 21x faster than LCJS v8 (10.94 FPS). HighCharts did not complete the test at 1,000 points and did not continue thereafter. Plotly.js did not complete the test at 50,000 points, Chart.js did not continue beyond 50,000 points, and uPlot did not continue beyond 500,000 points. LCJS v8 performed well through 200,000 points (141.16 FPS) but did not complete the test at 5 million points. Apache eCharts did not complete the test at 5 million points and did not continue beyond that.
 
-In this test case, SciChart was the clear winner scoring 'Fastest' in 7/9 test cases, with all test-scores way over 200 FPS and able to handle: 10,000x more data than LightningChart (LCJS), 
-and scored ~393x faster than HighCharts, ~258x faster than Chart.js, ~108x faster than Plotly with 1000x more data capacity, ~63x faster than Apache eCharts, ~263x faster than uPlot, and ~42x faster than ChartGPU.
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ChartGPU | 1,000 points, 1 series | 236.08 | Hanging | 49.78 | 26.15 | 230.10 | 230.22 | 236.27 | 224.30 |
+| ChartGPU | 10,000 points, 1 series | 236.18 | Skipped | 7.89 | 2.17 | 139.48 | 59.85 | 238.14 | 217.39 |
+| SciChart.js | 50,000 points, 1 series | 234.73 | Skipped | 0.91 | Hanging | 46.46 | 13.90 | 232.73 | 193.82 |
+| SciChart.js | 100,000 points, 1 series | 234.84 | Skipped | Skipped | Skipped | 28.32 | 6.63 | 189.85 | 146.85 |
+| SciChart.js | 200,000 points, 1 series | 233.60 | Skipped | Skipped | Skipped | 15.97 | 2.86 | 139.19 | 141.16 |
+| SciChart.js | 500,000 points, 1 series | 234.46 | Skipped | Skipped | Skipped | 7.65 | 0.89 | 77.61 | 37.64 |
+| SciChart.js | 1,000,000 points, 1 series | 234.66 | Skipped | Skipped | Skipped | 3.75 | Skipped | 47.02 | 10.94 |
+| SciChart.js | 5,000,000 points, 1 series | 232.69 | Skipped | Skipped | Skipped | Hanging | Skipped | 10.89 | Hanging |
+| SciChart.js | 10,000,000 points, 1 series | 228.04 | Skipped | Skipped | Skipped | Skipped | Skipped | 5.49 | Skipped |
 
-Another artefact noted in this test: Chart.js performance results show `requestAnimationFrame` able to tick at 49.78 FPS for 1,000 candles (but dropping to ~1 FPS for 50,000) but in actual fact, the viewable refresh rate seemed to be much lower. We suspect the visual refresh rate may be decoupled from browser refreshes.
+### Mountain (Area) Chart Performance Test Results
 
-|       FASTEST | Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) | Chart GPU (Avg FPS) | LCJS (Avg FPS) |
-|--------------:|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|:-------------------:|:--------------:|
-|      ChartGPU | 1000 points, 1 series     |        236.08         |        18.76         |       49.78        |        26.15        |          230.10          |     230.22      |       236.27        |     38.96      |
-|      ChartGPU | 10000 points, 1 series    |        236.18         |         0.60         |        7.89        |        2.17         |          139.48          |      59.85      |       238.14        |    HANGING     |
-|      SciChart | 50000 points, 1 series    |        234.73         |       HANGING        |        0.91        |       HANGING       |          46.46           |      13.90      |       232.73        |    SKIPPED     |
-|      SciChart | 100000 points, 1 series   |        234.84         |       SKIPPED        |      SKIPPED       |       SKIPPED       |          28.32           |      6.63       |       189.85        |    SKIPPED     |
-|      SciChart | 200000 points, 1 series   |        233.60         |       SKIPPED        |      SKIPPED       |       SKIPPED       |          15.97           |      2.86       |       139.19        |    SKIPPED     |
-|      SciChart | 500000 points, 1 series   |        234.46         |       SKIPPED        |      SKIPPED       |       SKIPPED       |           7.65           |      0.89       |        77.61        |    SKIPPED     |
-|      SciChart | 1000000 points, 1 series  |        234.66         |       SKIPPED        |      SKIPPED       |       SKIPPED       |           3.75           |     SKIPPED     |        47.02        |    SKIPPED     |
-|      SciChart | 5000000 points, 1 series  |        232.69         |       SKIPPED        |      SKIPPED       |       SKIPPED       |         HANGING          |     SKIPPED     |        10.89        |    SKIPPED     |
-|      SciChart | 10000000 points, 1 series |        228.04         |       SKIPPED        |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |        5.49         |    SKIPPED     |
+SciChart.js scored the highest FPS in 7 out of 9 test configurations, with uPlot taking 2 wins at 50,000 and 200,000 points. This test measures mountain (area) chart rendering performance. SciChart.js, LCJS v8, and uPlot all showed strong performance at moderate data sizes, with all three exceeding 230 FPS at 10,000 points. Plotly.js also performed well through 1 million points (126.19 FPS) but did not complete the test at 5 million points. At 10 million points, SciChart.js (236.00 FPS) was approximately 7% faster than LCJS v8 (220.89 FPS) and 15x faster than uPlot (16.21 FPS). Chart.js did not continue beyond 50,000 points, and Apache eCharts did not continue beyond 1 million points.
+
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| SciChart.js | 1,000 points, 1 series | 238.31 | 206.32 | 44.02 | 226.12 | 197.73 | 231.06 | 237.57 | 219.77 |
+| SciChart.js | 10,000 points, 1 series | 239.28 | 63.32 | 5.30 | 222.98 | 94.54 | 239.18 | 239.25 | 226.17 |
+| uPlot | 50,000 points, 1 series | 238.79 | 19.17 | 1.04 | 217.65 | 30.40 | 239.22 | 178.22 | 236.25 |
+| SciChart.js | 100,000 points, 1 series | 237.53 | 12.20 | 0.51 | 199.57 | 15.65 | 235.97 | 105.11 | 232.25 |
+| uPlot | 200,000 points, 1 series | 236.18 | 8.37 | Skipped | 172.56 | 6.97 | 236.41 | 52.00 | 232.68 |
+| SciChart.js | 500,000 points, 1 series | 239.53 | 4.34 | Skipped | 175.57 | 2.26 | 189.43 | 23.29 | 234.72 |
+| SciChart.js | 1,000,000 points, 1 series | 239.39 | 2.56 | Skipped | 126.19 | 0.86 | 119.94 | 12.52 | 233.35 |
+| SciChart.js | 5,000,000 points, 1 series | 237.01 | 0.50 | Skipped | Hanging | Skipped | 30.50 | 2.13 | 228.01 |
+| SciChart.js | 10,000,000 points, 1 series | 236.00 | Skipped | Skipped | Skipped | Skipped | 16.21 | 0.62 | 220.89 |
 
 ### FIFO / ECG Streaming Line Chart Performance Test Results
 
-For a highly dynamic dataset, with 5 line series each with 'first in first out' streaming, the type of chart used in real-time telemetry monitoring or ECG monitoring, the libraries performed as follows.
+This test measures first-in-first-out streaming with 5 line series, the type of chart used in real-time telemetry or ECG monitoring. LCJS v8 scored the highest FPS in 3 out of 6 test configurations (at 1 million, 5 million and 10 million points), SciChart.js scored fastest in 2 configurations (10,000 and 100,000 points), and ChartGPU took 1 win at the smallest data size (100 points).
 
-SciChart was the clear winner, scoring 'fastest' in 5 out of 6 test cases, able to render 5x series streaming with 1,000,000 points each at ~76 FPS, and a total data update rate of over 39,480,000 data-points per second ingested. 
-The most demanding scenario tested was 10,000,000 datapoints x 5 series which SciChart could handle at 18.13 FPS.
+At 10 million points, LCJS v8 (31.50 FPS) was approximately 62% faster than SciChart.js (19.40 FPS). Both libraries significantly outperformed the field at this scale: uPlot recorded 1.25 FPS while all other libraries did not continue. At 100,000 points, SciChart.js (236.14 FPS) and LCJS v8 (235.78 FPS) were nearly identical, both well ahead of uPlot (97.92 FPS) and ChartGPU (58.92 FPS). Chart.js did not complete the test at 100,000 points, HighCharts and Apache eCharts did not complete the test at 1 million points, and ChartGPU encountered an error at 5 million points.
 
-Compared with competitors, SciChart benched at ~60x faster than HighCharts, ~124x faster than Plotly.js, ~145x faster than Apache eCharts, ~14.5x faster than uPlot. ~11.4x faster than ChartGPU and ~3.3x faster than LightningChart (LCJS), 
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ChartGPU | 100 points, 5 series | 235.13 | 67.17 | 102.14 | 106.29 | 212.86 | 230.72 | 237.66 | 222.02 |
+| SciChart.js | 10,000 points, 5 series | 235.69 | 18.82 | 17.35 | 62.77 | 17.08 | 184.10 | 230.87 | 234.71 |
+| SciChart.js | 100,000 points, 5 series | 236.14 | 3.92 | Hanging | 5.75 | 1.62 | 97.92 | 58.92 | 235.78 |
+| LCJS v8 | 1,000,000 points, 5 series | 79.21 | Hanging | Skipped | 0.61 | Hanging | 12.15 | 6.64 | 81.35 |
+| LCJS v8 | 5,000,000 points, 5 series | 29.09 | Skipped | Skipped | Skipped | Skipped | 2.56 | Error | 31.53 |
+| LCJS v8 | 10,000,000 points, 5 series | 19.40 | Skipped | Skipped | Skipped | Skipped | 1.25 | Skipped | 31.50 |
 
-In this test, SciChart was the only chart library able to handle the most demanding test case (10,000,000 datapoints per series, x5 series, updating at ~40M datapoints per second) at a reasonably interactive framerate. 
+### Series Compression (Data Aggregation) Performance Test Results
 
-|  FASTEST | Parameters                | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) | Chart GPU (Avg FPS) | LCJS (Avg FPS) |
-|---------:|---------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|:-------------------:|:--------------:|
-| ChartGPU | 100 points, 5 series      |        236.05         |        67.17         |       102.14       |       106.29        |          212.86          |     230.72      |       237.66        |     171.18     |
-| SciChart | 10000 points, 5 series    |        236.44         |        18.82         |       17.35        |        62.77        |          17.08           |     184.10      |       230.87        |     219.43     |
-| SciChart | 100000 points, 5 series   |        235.56         |         3.92         |      HANGING       |        5.75         |           1.62           |      97.92      |        58.92        |     135.08     |
-| SciChart | 1000000 points, 5 series  |         75.63         |       HANGING        |      SKIPPED       |        0.61         |         HANGING          |      12.15      |        6.64         |     29.13      |
-| SciChart | 5000000 points, 5 series  |         28.61         |       SKIPPED        |      SKIPPED       |       SKIPPED       |         SKIPPED          |      2.56       |       ERRORED       |      8.75      |
-| SciChart | 10000000 points, 5 series |         18.13         |       SKIPPED        |      SKIPPED       |       SKIPPED       |         SKIPPED          |      1.25       |       SKIPPED       |    HANGING     |
+This test evaluates how libraries perform when data is incrementally appended and the chart must compress/aggregate the visible series. LCJS v8 scored the highest FPS in 2 out of 5 test configurations (100,000 and 1 million points), while SciChart.js took 2 wins at 1,000 and 10,000 points. At 10 million points, SciChart.js (21.84 FPS) narrowly edged LCJS v8 (20.91 FPS), with uPlot (6.18 FPS) and HighCharts (0.38 FPS) also completing the test. ChartGPU encountered an error at 10 million points and Plotly.js did not complete the test at that scale.
 
-### Multi chart performance test results
+At 1 million points, LCJS v8 (155.83 FPS) was approximately 2.2x faster than SciChart.js (69.38 FPS), 6x faster than uPlot (27.32 FPS) and 8x faster than ChartGPU (20.61 FPS). Chart.js did not continue beyond 1 million points, and Apache eCharts did not continue beyond 1 million points.
 
-Single chart, single series tests reveal raw throughput of charts, but can chart libraries scale with number of charts on screen? In this test, we increased the difficulty by having up to 128 charts on screen, showing a mixture of realtime & static data in line series, column, mountain and scatter, each with 100k data-point count.
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| SciChart.js | 1,000 points, 1 series | 238.16 | 85.75 | 23.18 | 114.65 | 86.79 | 231.82 | 236.81 | 228.12 |
+| SciChart.js | 10,000 points, 1 series | 239.14 | 35.63 | 7.19 | 46.00 | 26.88 | 218.36 | 173.78 | 237.86 |
+| LCJS v8 | 100,000 points, 1 series | 173.61 | 13.98 | 1.84 | 11.89 | 6.17 | 87.83 | 68.25 | 226.50 |
+| LCJS v8 | 1,000,000 points, 1 series | 69.38 | 3.13 | 0.35 | 2.34 | 0.63 | 27.32 | 20.61 | 155.83 |
+| SciChart.js | 10,000,000 points, 1 series | 21.84 | 0.38 | Skipped | Hanging | Skipped | 6.18 | Error | 20.91 |
 
-In this test case, SciChart scored 'fastest' in 7 out of 8 tests. In the multi-chart test, SciChart benched ~61 faster than HighCharts,
-~202x faster than Plotly, ~166x faster than Chart.js, ~32x faster than Apache eCharts (and 128x more charts on screen), 6x faster than ChartGPU (and 4x more charts on screen), 2x faster than uPlot (and 128x more charts on screen).
+### Multi Chart Performance Test Results
 
-Both eCharts and uPlot failed beyond 1x chart in this demanding test, LightningChart (LCJS) and Chart.js failed at 4x charts, HighCharts and ChartGPU failed beyond 32 charts. In this test case, SciChart was the only chart library able to render
-128 charts with realtime dynamic data.
+This test measures how libraries scale with multiple charts on screen simultaneously, showing a mixture of real-time and static data in line, column, mountain, and scatter series, each with 100,000 data points. SciChart.js scored the highest FPS in 6 out of 8 test configurations, with LCJS v8 taking 2 wins at 1 and 2 charts.
 
-|  FASTEST | Parameters                          | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) | Chart GPU (Avg FPS) | LCJS (Avg FPS) |
-|---------:|-------------------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|:-------------------:|:--------------:|
-|     LCJS | 100000 points, 1 series, 1 charts   |        154.64         |        13.53         |        1.84        |        11.04        |           4.85           |      79.31      |        65.65        |     205.84     |
-| SciChart | 100000 points, 1 series, 2 charts   |        127.81         |         7.57         |        0.77        |        8.41         |         HANGING          |     HANGING     |        51.15        |     95.80      |
-| SciChart | 100000 points, 1 series, 4 charts   |        108.93         |         3.30         |      SKIPPED       |        0.54         |         SKIPPED          |     SKIPPED     |        33.16        |    HANGING     |
-| SciChart | 100000 points, 1 series, 8 charts   |         77.21         |         1.74         |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |        18.31        |    SKIPPED     |
-| SciChart | 100000 points, 1 series, 16 charts  |         49.22         |         1.08         |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |        7.95         |    SKIPPED     |
-| SciChart | 100000 points, 1 series, 32 charts  |         29.26         |         0.48         |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |        4.70         |    SKIPPED     |
-| SciChart | 100000 points, 1 series, 64 charts  |         15.78         |       SKIPPED        |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |       SKIPPED       |    SKIPPED     |
-| SciChart | 100000 points, 1 series, 128 charts |         7.58          |       SKIPPED        |      SKIPPED       |       SKIPPED       |         SKIPPED          |     SKIPPED     |       SKIPPED       |    SKIPPED     |
+At 32 charts, SciChart.js (26.78 FPS) was approximately 6x faster than ChartGPU (4.70 FPS) and 56x faster than HighCharts (0.48 FPS). LCJS v8 did not complete the test at 32 charts. SciChart.js was the only library able to render 64 and 128 charts, recording 12.46 FPS and 7.90 FPS respectively. Apache eCharts and uPlot did not complete the test at 2 charts, Chart.js did not continue beyond 2 charts, and Plotly.js did not continue beyond 4 charts.
 
-### Thousands of Line Series, Thousands of points
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| LCJS v8 | 100,000 points, 1 series, 1 chart | 155.75 | 13.53 | 1.84 | 11.04 | 4.85 | 79.31 | 65.65 | 220.39 |
+| LCJS v8 | 100,000 points, 1 series, 2 charts | 124.67 | 7.57 | 0.77 | 8.41 | Hanging | Hanging | 51.15 | 166.78 |
+| SciChart.js | 100,000 points, 1 series, 4 charts | 103.76 | 3.30 | Skipped | 0.54 | Skipped | Skipped | 33.16 | 71.55 |
+| SciChart.js | 100,000 points, 1 series, 8 charts | 71.09 | 1.74 | Skipped | Skipped | Skipped | Skipped | 18.31 | 31.45 |
+| SciChart.js | 100,000 points, 1 series, 16 charts | 42.75 | 1.08 | Skipped | Skipped | Skipped | Skipped | 7.95 | 10.60 |
+| SciChart.js | 100,000 points, 1 series, 32 charts | 26.78 | 0.48 | Skipped | Skipped | Skipped | Skipped | 4.70 | Hanging |
+| SciChart.js | 100,000 points, 1 series, 64 charts | 12.46 | Skipped | Skipped | Skipped | Skipped | Skipped | Skipped | Skipped |
+| SciChart.js | 100,000 points, 1 series, 128 charts | 7.90 | Skipped | Skipped | Skipped | Skipped | Skipped | - | Skipped |
 
-In this test, Plotly.js and LCJS have higher FPS in mid-range point counts, but both hang at higher point/series counts. Hanging means the chart hangs (more than 3 seconds = `testDuration` to initialise).
-Skipped means subsequent tests are skipped due to either low FPS or error conditions.
+### Thousands of Line Series, Thousands of Points
 
-In this test case, SciChart was the only chart library able to render 4000 series x 4000 points, and 8000 series x 8000 points with an initialisation time sub 3-seconds, able to handle 16x more data than the closest competitor (LightningChart, LCJS).
+This test measures how libraries handle increasing numbers of series, each with a correspondingly increasing number of points. Plotly.js scored the highest FPS in 4 out of 7 test configurations (200–2,000 series), LCJS v8 took 1 win (4,000 series), and SciChart.js took 2 wins (100 and 8,000 series).
 
-|   FASTEST | Parameters               | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) | Chart GPU (Avg FPS)  | LCJS (Avg FPS)  |
-|----------:|--------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|:--------------------:|:---------------:|
-|  SciChart | 100 points, 100 series   |         237.45        |        41.39         |        9.61        |       225.46        |          92.96           |     183.49      |        212.93        |     219.33      |
-|    Plotly | 200 points, 200 series   |         235.88        |       HANGING        |        2.64        |       238.77        |          40.61           |      43.16      |        120.22        |     226.57      |
-|      LCJS | 500 points, 500 series   |         117.79        |       SKIPPED        |        0.43        |       148.25        |           9.12           |      6.10       |        43.36         |     180.12      |
-|    Plotly | 1000 points, 1000 series |         60.86         |       SKIPPED        |       SKIPPED      |        94.28        |           2.51           |      1.52       |        18.17         |      90.22      |
-|      LCJS | 2000 points, 2000 series |         27.54         |       SKIPPED        |       SKIPPED      |        49.14        |         HANGING          |      0.29       |         5.77         |      37.44      |
-|  SciChart | 4000 points, 4000 series |          9.97         |       SKIPPED        |       SKIPPED      |       HANGING       |         SKIPPED          |     HANGING     |       HANGING        |     HANGING     |
-|  SciChart | 8000 points, 8000 series |          2.76         |       SKIPPED        |       SKIPPED      |       SKIPPED       |         SKIPPED          |     SKIPPED     |       SKIPPED        |     SKIPPED     |
+Plotly.js and LCJS v8 showed strong mid-range performance but both did not complete the test at higher series counts. At 4,000 series x 4,000 points, LCJS v8 (15.49 FPS) was approximately 60% faster than SciChart.js (9.67 FPS) — the only two libraries able to render at that scale. However, SciChart.js was the only library able to render 8,000 series x 8,000 points (2.19 FPS). HighCharts did not complete the test at 200 series, Chart.js did not continue beyond 1,000 series, and Apache eCharts did not complete the test at 2,000 series. ChartGPU did not complete the test at 4,000 series.
 
-### Uniform Heatmap Chart Performance test results
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Chart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | uPlot (FPS) | ChartGPU (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| SciChart.js | 100 points, 100 series | 235.30 | 41.76 | 10.48 | 225.46 | 82.97 | 183.49 | 212.93 | 224.70 |
+| Plotly.js | 200 points, 200 series | 235.92 | Hanging | 2.77 | 238.77 | 36.69 | 43.16 | 120.22 | 231.64 |
+| Plotly.js | 500 points, 500 series | 129.03 | Skipped | 0.47 | 148.25 | 7.86 | 6.10 | 43.36 | 134.99 |
+| Plotly.js | 1,000 points, 1,000 series | 63.71 | Skipped | Skipped | 94.28 | 1.88 | 1.52 | 18.17 | 78.70 |
+| Plotly.js | 2,000 points, 2,000 series | 27.43 | Skipped | Skipped | 49.14 | Hanging | 0.29 | 5.77 | 39.65 |
+| LCJS v8 | 4,000 points, 4,000 series | 9.67 | Skipped | Skipped | Hanging | Skipped | Skipped | Hanging | 15.49 |
+| SciChart.js | 8,000 points, 8,000 series | 2.19 | Skipped | Skipped | Skipped | Skipped | Skipped | Skipped | Hanging |
 
-In this test, a 2D uniform heatmap with a color map is updated with real-time data. SciChart excelled being able to render a 1000x1000 heatmap at ~40 FPS and scored 'fastest' in 5 out of 7 test cases.
+### Uniform Heatmap Chart Performance Test Results
 
-Note: Chart.js does not support a heatmap and uPlot, we couldn't get this to work.
+This test updates a 2D uniform heatmap with a colour map in real time. Chart.js, uPlot, and ChartGPU do not support heatmaps and were excluded. SciChart.js scored the highest FPS in 5 out of 7 test configurations (the 16,000 grid test was not completed by any library), with LCJS v8 taking 2 wins at the largest renderable sizes (4,000 and 8,000 grid points).
 
-|  FASTEST | Parameters             | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) | Chart GPU (Avg FPS) | LCJS (Avg FPS) |
-|---------:|------------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|:-------------------:|:--------------:|
-| SciChart | 100 points, 1 series   |        235.67         |        16.39         |    Unsupported     |       122.39        |          19.24           |   Unsupported   |     Unsupported     |     227.20     |
-| SciChart | 200 points, 1 series   |        235.76         |         4.85         |         -          |        72.34        |           5.18           |        -        |          -          |     229.61     |
-| SciChart | 500 points, 1 series   |        143.55         |         0.82         |         -          |        17.40        |           0.67           |        -        |          -          |     84.44      |
-| SciChart | 1000 points, 1 series  |         39.97         |       SKIPPED        |         -          |        4.75         |         SKIPPED          |        -        |          -          |     25.39      |
-| SciChart | 2000 points, 1 series  |         9.48          |       SKIPPED        |         -          |        1.16         |         SKIPPED          |        -        |          -          |      6.24      |
-|     LCJS | 4000 points, 1 series  |         2.32          |       SKIPPED        |         -          |       SKIPPED       |         SKIPPED          |        -        |          -          |      3.09      |
-|     LCJS | 8000 points, 1 series  |         0.48          |       SKIPPED        |         -          |       SKIPPED       |         SKIPPED          |        -        |          -          |      0.67      |
-|        - | 16000 points, 1 series |        SKIPPED        |       SKIPPED        |         -          |       SKIPPED       |         SKIPPED          |        -        |          -          |    SKIPPED     |
+SciChart.js maintained over 235 FPS for small heatmaps (100–200 grid size) and recorded 39.97 FPS at 1,000 grid size. At 8,000 grid points, LCJS v8 (0.64 FPS) was approximately 33% faster than SciChart.js (0.48 FPS). Plotly.js did not complete the test at 4,000 grid points, and HighCharts and Apache eCharts did not continue beyond 200 grid points. At 16,000 grid points, no library was able to complete the test.
+
+| Fastest | Parameters | SciChart.js (FPS) | HighCharts (FPS) | Plotly.js (FPS) | eCharts (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|:---:|
+| SciChart.js | 100 points, 1 series | 235.67 | 16.39 | 122.39 | 19.24 | 228.79 |
+| SciChart.js | 200 points, 1 series | 235.76 | 4.85 | 72.34 | 5.18 | 231.02 |
+| SciChart.js | 500 points, 1 series | 143.55 | 0.82 | 17.40 | 0.67 | 93.16 |
+| SciChart.js | 1,000 points, 1 series | 39.97 | Skipped | 4.75 | Skipped | 27.75 |
+| SciChart.js | 2,000 points, 1 series | 9.48 | Skipped | 1.16 | Skipped | 6.87 |
+| LCJS v8 | 4,000 points, 1 series | 2.32 | Skipped | Hanging | Skipped | 2.94 |
+| LCJS v8 | 8,000 points, 1 series | 0.48 | Skipped | Skipped | Skipped | 0.64 |
+| - | 16,000 points, 1 series | Skipped | Skipped | Skipped | Skipped | Skipped |
 
 ### 3D Point Cloud Chart Performance Test Results
 
-3D Charts are also tested, only Plotly.js, Apache eCharts, LightningChart (LCJS) and SciChart.js support 3D point clouds, so HighCharts, Chart.js, ChartGPU and uPlot were excluded from these tests.
+Only SciChart.js, Plotly.js, Apache eCharts, and LCJS v8 support 3D point clouds; HighCharts, Chart.js, ChartGPU, and uPlot were excluded. SciChart.js scored the highest FPS in 4 out of 7 test configurations, Apache eCharts took 2 wins at the smallest sizes (100 and 1,000 points), and LCJS v8 took 1 win at 10,000 points.
 
-For rendering 3D point clouds, SciChart.js excels, able to render 100,000 point point-clouds at 140 FPS, or 1,000,000 point point-clouds at 15.89 FPS in a fully dynamic dataset (data replaced completely each frame).
+At 4 million points, SciChart.js (3.51 FPS) was approximately 2x faster than LCJS v8 (1.76 FPS) — the only two libraries able to render at that scale. At 100,000 points, SciChart.js (121.34 FPS) was approximately 48% faster than LCJS v8 (81.76 FPS) and 14x faster than Apache eCharts (8.60 FPS). Plotly.js encountered an error at 1 million points and did not continue beyond that. Apache eCharts did not continue beyond 2 million points.
 
-SciChart scored "fastest" in 6 out of 7 tests, beaten only by Apache eCharts at 1000 points, where eCharts scored 240 FPS vs. SciChart 231 FPS (negligable). SciChart was the fastest chart library on the hardest test condition (4 million Xyz datapoints)
-scoring 3.58 FPS, a data ingestion rate of 14 million Xyz datapoints per second. 
-
-|  FASTEST | Parameters               | SciChart.js (Avg FPS) | Highcharts (Avg FPS)  | Chart.js (Avg FPS)  | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS)  | Chart GPU (Avg FPS) | LCJS (Avg FPS) |
-|---------:|--------------------------|:---------------------:|:---------------------:|:-------------------:|:-------------------:|:------------------------:|:----------------:|:-------------------:|:--------------:|
-| SciChart | 100 points, 1 series     |        227.89         |      Unsupported      |     Unsupported     |        83.98        |          229.36          |   Unsupported    |     Unsupported     |     226.28     |
-|  eCharts | 1000 points, 1 series    |        231.49         |           -           |          -          |        51.24        |          239.69          |        -         |          -          |     235.65     |
-| SciChart | 10000 points, 1 series   |        231.15         |           -           |          -          |        12.59        |          82.37           |        -         |          -          |     226.90     |
-| SciChart | 100000 points, 1 series  |        140.83         |           -           |          -          |        1.41         |           8.60           |        -         |          -          |     78.83      |
-| SciChart | 1000000 points, 1 series |         15.89         |           -           |          -          |  ERROR_APPEND_DATA  |           1.25           |        -         |          -          |      7.39      |
-| SciChart | 2000000 points, 1 series |         7.65          |           -           |          -          |       SKIPPED       |           0.67           |        -         |          -          |      3.40      |
-| SciChart | 4000000 points, 1 series |         3.58          |           -           |          -          |       SKIPPED       |         SKIPPED          |        -         |          -          |      1.87      |
+| Fastest | Parameters | SciChart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|
+| eCharts | 100 points, 1 series | 228.32 | 83.98 | 229.36 | 225.67 |
+| eCharts | 1,000 points, 1 series | 230.18 | 51.24 | 239.69 | 236.47 |
+| LCJS v8 | 10,000 points, 1 series | 229.52 | 12.59 | 82.37 | 236.65 |
+| SciChart.js | 100,000 points, 1 series | 121.34 | 1.41 | 8.60 | 81.76 |
+| SciChart.js | 1,000,000 points, 1 series | 15.09 | Error | 1.25 | 7.28 |
+| SciChart.js | 2,000,000 points, 1 series | 7.52 | Skipped | 0.67 | 3.84 |
+| SciChart.js | 4,000,000 points, 1 series | 3.51 | Skipped | Skipped | 1.76 |
 
 ### 3D Surface Mesh Performance Test Results
 
-For 3D surface meshes, SciChart.js excels, being able to render a 500x500 mesh at 95.62 FPS and 1000x1000 mesh at 27.69 FPS. Plotly.js was able to render 500x500 at 5.07 FPS and 1000x1000 at 1.34 FPS. 
-eCharts was able to render 500x500 at 2.40 FPS and 1000x1000 at 0.48 FPS. ChartGPU, uPlot, HighCharts and uPlot were all disabled for this test as 3D surface meshes were unsupported.
+Only SciChart.js, Plotly.js, Apache eCharts, and LCJS v8 support 3D surface meshes; HighCharts, Chart.js, ChartGPU, and uPlot were excluded. SciChart.js scored the highest FPS in 5 out of 6 completable test configurations, with LCJS v8 taking 1 win at 4,000 grid points. At 8,000 grid points, neither SciChart.js nor LCJS v8 completed the test.
 
-In this test, LightningChart (LCJS) scored fastest in 6 out of 7 tests, with a very close second by SciChart.js. It is important to note that SciChart FPS scores were often within 2% - 10% of LCJS with only larger differences seen beyond 4000x4000 surface meshes.
+At 500 grid size, SciChart.js (95.62 FPS) was approximately 44% faster than LCJS v8 (66.45 FPS). At 4,000 grid points, LCJS v8 (1.76 FPS) was approximately 38% faster than SciChart.js (1.28 FPS). Plotly.js did not complete the test at 2,000 grid points, and Apache eCharts did not continue beyond 1,000 grid points.
 
-|  FASTEST | Parameters            | SciChart.js (Avg FPS) | Highcharts (Avg FPS) | Chart.js (Avg FPS) | Plotly.js (Avg FPS) | Apache ECharts (Avg FPS) | uPlot (Avg FPS) | Chart GPU (Avg FPS) | LCJS (Avg FPS) |
-|---------:|-----------------------|:---------------------:|:--------------------:|:------------------:|:-------------------:|:------------------------:|:---------------:|:-------------------:|:--------------:|
-| SciChart | 100 points, 1 series  |        229.21         |     Unsupported      |     Unsupported    |        26.71        |          40.95           |   Unsupported   |     Unsupported     |     226.72     |
-|     LCJS | 200 points, 1 series  |        231.35         |          -           |         -          |        24.41        |          15.02           |        -        |          -          |     236.31     |
-|     LCJS | 500 points, 1 series  |         95.62         |          -           |         -          |        5.07         |           2.40           |        -        |          -          |     99.31      |
-|     LCJS | 1000 points, 1 series |         27.69         |          -           |         -          |        1.34         |           0.48           |        -        |          -          |     30.47      |
-|     LCJS | 2000 points, 1 series |         5.96          |          -           |         -          |       HANGING       |         SKIPPED          |        -        |          -          |      6.73      |
-|     LCJS | 4000 points, 1 series |         1.28          |          -           |         -          |       SKIPPED       |         SKIPPED          |        -        |          -          |      2.64      |
-|     LCJS | 8000 points, 1 series |        SKIPPED        |          -           |         -          |       SKIPPED       |         SKIPPED          |        -        |          -          |      0.63      |
+| Fastest | Parameters | SciChart.js (FPS) | Plotly.js (FPS) | eCharts (FPS) | LCJS v8 (FPS) |
+|--------:|------------|:---:|:---:|:---:|:---:|
+| SciChart.js | 100 points, 1 series | 229.21 | 26.71 | 40.95 | 224.76 |
+| SciChart.js | 200 points, 1 series | 231.35 | 24.41 | 15.02 | 193.44 |
+| SciChart.js | 500 points, 1 series | 95.62 | 5.07 | 2.40 | 66.45 |
+| SciChart.js | 1,000 points, 1 series | 27.69 | 1.34 | 0.48 | 19.06 |
+| SciChart.js | 2,000 points, 1 series | 5.96 | Hanging | Skipped | 4.49 |
+| LCJS v8 | 4,000 points, 1 series | 1.28 | Skipped | Skipped | 1.76 |
+| - | 8,000 points, 1 series | Hanging | Skipped | Skipped | Hanging |
 
 ### Test Result Conclusions
 
-## Aggregation of test scores
+## Aggregation of Test Scores
 
-Based on FPS alone, SciChart.js scored "Fastest" in 60 out of 79 performance tests (scoring fastest in 83% of tests), covering a wide range of 2D & 3D chart types, multi-chart cases, static charts and realtime charts, against a wide variety of competitors including HighCharts, Chart.js, Plotly.js, Apache eCharts, uPlot, ChartGPU and LightingChart (LCJS).
+Based on FPS alone, across 102 test configurations spanning 13 test categories and 8 chart libraries:
 
-By running the test application, you can also view data such as data-ingestion rate, memory usage and initialisation time, areas which SciChart.js is also highly optimised for, scoring as high as 40+ million datapoints per second in real-time tests for data ingestion, and with chart initialisation times which typically score lower than all competing chart libraries. 
+- **SciChart.js** achieved the highest FPS score in 73 out of 102 test configurations (72%), with an average of 153.4 FPS, dominating 10 of 13 test categories including Line series which is unsorted in x, Column chart with data ascending in X, Brownian Motion Scatter Series and 7 more.
+- **LightningChart** (LCJS v8) placed second overall with 15 wins out of 102 configurations (avg 127.9 FPS), and saw its best overall performance in the Series Compression Test.
+- **ChartGPU** placed third overall with 6 wins out of 102 configurations (avg 94.0 FPS).
 
-## Suitability by Use Case
-
-| Use Case                                     | Suitable Libraries                           | Notes                                              |
-|----------------------------------------------|----------------------------------------------|----------------------------------------------------|
-| Small dashboards (<10k points)               | Chart.js, Highcharts, ECharts, Plotly, uPlot | All perform adequately                             |
-| Large datasets (≥100k - 1M points)           | SciChart                                     | Several others degrade or fail                     |
-| Real-time streaming (ECG/FIFO)               | SciChart                                     | Sustained FPS under load, high data-ingestion rate |
-| Many series (1000+)                          | SciChart                                     | CPU-based libraries stall                          |
-| Heatmaps (1M+ cells)                         | SciChart                                     | Several others skipped or unsupported              |
-| 3D charts                                    | SciChart                                     | Sevearl others crash or skip                       |
-| Combined dashboards with several chart types | SciChart                                     | All others have cumulative performance problems    |
+By running the test application, you can also view data such as data-ingestion rate, memory usage and initialisation time, plus, browse pre-recorded results on four hardware configurations (Intel, ARM, Apple and Raspberry Pi).
 
 ## Final Conclusion
 
 JavaScript charting performance is fundamentally architecture-bound.
 CPU-based and general-purpose charting libraries cannot scale to large, real-time, or multi-surface workloads.
 Only GPU-accelerated, purpose-built charting engines remain usable at extreme scale.
-
-Optimising a library for a variety of purposes is a difficult job, while one library may excel in one test-case, SciChart excels in all. Combined with a highly flexible API, large number (70+) of chart types and backed by excellent documentation, we present SciChart as the best choice for JavaScript Charting under extreme workloads or mission critical datavisualisation applications.
 
 ## Running the Test Suite
 
