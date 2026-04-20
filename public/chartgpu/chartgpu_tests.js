@@ -15,7 +15,7 @@ function eLibName() {
 }
 
 function eLibVersion() {
-    return '0.1.6';
+    return '0.3.2';
 }
 
 async function getSupportedTests() {
