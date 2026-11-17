@@ -1,4 +1,4 @@
-# Performance Test SciChart.js 5.0.0
+# Performance Test SciChart.js 5.2.69
 
 ## File Size
 
